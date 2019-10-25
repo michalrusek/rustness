@@ -108,7 +108,7 @@ impl Cpu {
 //            0x1d => { 29 }
 //            0x1e => { 30 }
 //            0x1f => { 31 }
-            0x20 => { let jmp_adr = self.mem.borrow_mut().read_u16(self.pc); self.pc += 1; self.stack_push_u16(self.pc); self.pc = jmp_adr; 6 }
+            0x20 => { let jmp_adr = self.mem.borrow_mut().read_u16(self.pc); self.pc = self.pc.wrapping_add(1); self.stack_push_u16(self.pc); self.pc = jmp_adr; 6 }
 //            0x21 => { 33 }
 //            0x22 => { 34 }
 //            0x23 => { 35 }
