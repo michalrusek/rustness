@@ -3,6 +3,8 @@ mod nes;
 
 use piston_window::*;
 use crate::nes::Nes;
+use std::fs::File;
+use std::io::{BufReader, BufRead};
 
 fn main() {
     let mut window: PistonWindow =
@@ -11,6 +13,13 @@ fn main() {
 
     //Initialize the emulator
     let mut n = Nes::new("./roms/nestest.nes");
+
+    //TODO: REMOVE THIS TESTING CODE
+    let file = File::open("./roms/nestest.log.txt").unwrap();
+    let reader = BufReader::new(file);
+    let mut lines_iter = reader.lines().map(|l| l.unwrap());
+    let mut line_number = 1;
+    //END OF TODO
 
     //Loop through window events - this loops at *refresh_rate* right now
     //TODO: Make it loop at 60fps constantly
@@ -23,6 +32,9 @@ fn main() {
 
         if let Some(u) = event.update_args() {
             n.emulate_frame();
+            assert_eq!(n.mem.borrow_mut().log_string, lines_iter.next().unwrap());
+            println!("Line {:?} is okay.", line_number);
+            line_number += 1;
         }
     }
 }

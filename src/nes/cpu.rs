@@ -16,12 +16,21 @@ pub struct Cpu {
 impl Cpu {
     pub fn new(mem: Rc<RefCell<Mem>>) -> Cpu {
         let pc = 0xC000; // automatic tests in nestest start at this address
-        Cpu { pc, a: 0, x: 0, y: 0, s: 0xFD, p: 0x34, mem: Rc::clone(&mem) }
+        Cpu { pc, a: 0, x: 0, y: 0, s: 0xFD, p: 0x24, mem: Rc::clone(&mem) }
+    }
+
+    pub fn log_me(&self, opcode: u8) {
+        self.mem.borrow_mut().log_string = format!(
+            "{:04X} | {:02X} | A:{:02X} | X:{:02X} | Y:{:02X} | P:{:02X} | SP:{:02X}",
+            self.pc, opcode, self.a, self.x, self.y, self.p, self.s
+        );
     }
 
     pub fn emulate(&mut self) -> u8 {
         //Emulates one opcode and returns the amount of cycles one opcode took
         let opcode = self.mem.borrow_mut().read_u8(self.pc);
+        #[cfg(debug_assertions)]
+        self.log_me(opcode);
         self.pc = self.pc.wrapping_add(1);
         match opcode {
 //            0x0 => { 0 }

@@ -10,7 +10,8 @@ use std::rc::Rc;
 
 pub struct Mem {
     ram: [u8; 0x800],
-    pgr_rom: Vec<u8>
+    pgr_rom: Vec<u8>,
+    pub log_string: String
 }
 
 impl Mem {
@@ -51,7 +52,7 @@ impl Mem {
 pub struct Nes {
     rom_header: Vec<u8>,
     cpu: Cpu,
-    mem: Rc<RefCell<Mem>>,
+    pub mem: Rc<RefCell<Mem>>,
 }
 
 impl Nes {
@@ -67,7 +68,7 @@ impl Nes {
         //TODO: Parse rom header properly
         let (rom_header_bytes, rom) = rom_bytes.split_at(16);
         let mem = Rc::new(RefCell::new(
-            Mem { ram: [0; 0x800], pgr_rom: rom.to_vec()}
+            Mem { ram: [0; 0x800], pgr_rom: rom.to_vec(), log_string: "".to_string()}
         ));
 
         Nes {
@@ -80,12 +81,12 @@ impl Nes {
     pub fn emulate_frame(&mut self) {
         //Emulate a fixed amount of cycles pef frame
         let mut i: i32 = 1789773;
-        while i > 0 {
-            #[cfg(debug_assertions)]
-            println!("{:?}", self.cpu);
+//        while i > 0 {
+//            #[cfg(debug_assertions)]
+//            println!("{:?}", self.cpu);
             let cycles_taken = self.cpu.emulate();
             i -= cycles_taken as i32;
-        }
+//        }
     }
 
     pub fn render_frame(&mut self, c: piston_window::context::Context,
