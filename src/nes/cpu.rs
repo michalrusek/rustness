@@ -10,23 +10,30 @@ pub struct Cpu {
     pub y: u8,
     pub s: u8,
     pub p: u8,
+    pub cycles: u64,
     pub mem: Rc<RefCell<Mem>>
 }
 
 impl Cpu {
     pub fn new(mem: Rc<RefCell<Mem>>) -> Cpu {
         let pc = 0xC000; // automatic tests in nestest start at this address
-        Cpu { pc, a: 0, x: 0, y: 0, s: 0xFD, p: 0x24, mem: Rc::clone(&mem) }
+        Cpu { pc, a: 0, x: 0, y: 0, s: 0xFD, p: 0x24, mem: Rc::clone(&mem), cycles: 7 }
     }
 
     pub fn log_me(&self, opcode: u8) {
         self.mem.borrow_mut().log_string = format!(
-            "{:04X} | {:02X} | A:{:02X} | X:{:02X} | Y:{:02X} | P:{:02X} | SP:{:02X}",
-            self.pc, opcode, self.a, self.x, self.y, self.p, self.s
+            "{:04X} | {:02X} | A:{:02X} | X:{:02X} | Y:{:02X} | P:{:02X} | SP:{:02X} | CYC:{:?}",
+            self.pc, opcode, self.a, self.x, self.y, self.p, self.s, self.cycles
         );
     }
 
     pub fn emulate(&mut self) -> u8 {
+        let cycles = self.run_next_opcode();
+        self.cycles += cycles as u64;
+        cycles
+    }
+
+    pub fn run_next_opcode(&mut self) -> u8 {
         //Emulates one opcode and returns the amount of cycles one opcode took
         let opcode = self.mem.borrow_mut().read_u8(self.pc);
         #[cfg(debug_assertions)]
