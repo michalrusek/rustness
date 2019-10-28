@@ -86,6 +86,23 @@ impl Cpu {
         let upper = self.stack_pop_u8() as u16;
         lower | (upper << 8)
     }
+    pub fn branch_if(&mut self, branch: bool) -> u8 {
+        if branch {
+            let offset = self.mem.borrow_mut().read_signed(self.pc);
+            self.pc = self.pc.wrapping_add(1);
+            let old_page = self.pc >> 8;
+            self.pc = self.pc.wrapping_add(offset as u16);
+            let new_page = self.pc >> 8;
+            if old_page != new_page {
+                5
+            } else {
+                3
+            }
+        } else {
+            self.pc = self.pc.wrapping_add(1);
+            2
+        }
+    }
 
     pub fn run_next_opcode(&mut self) -> u8 {
         //Emulates one opcode and returns the amount of cycles one opcode took
@@ -110,7 +127,10 @@ impl Cpu {
 //            0xd => { 13 }
 //            0xe => { 14 }
 //            0xf => { 15 }
-//            0x10 => { 16 }
+            0x10 => {
+                let branch = self.get_negative() == false;
+                self.branch_if(branch)
+            }
 //            0x11 => { 17 }
 //            0x12 => { 18 }
 //            0x13 => { 19 }
@@ -118,7 +138,10 @@ impl Cpu {
 //            0x15 => { 21 }
 //            0x16 => { 22 }
 //            0x17 => { 23 }
-            0x18 => { self.set_carry(false); 2 }
+            0x18 => {
+                self.set_carry(false);
+                2
+            }
 //            0x19 => { 25 }
 //            0x1a => { 26 }
 //            0x1b => { 27 }
@@ -148,7 +171,10 @@ impl Cpu {
 //            0x2d => { 45 }
 //            0x2e => { 46 }
 //            0x2f => { 47 }
-//            0x30 => { 48 }
+            0x30 => {
+                let branch = self.get_negative();
+                self.branch_if(branch)
+            }
 //            0x31 => { 49 }
 //            0x32 => { 50 }
 //            0x33 => { 51 }
@@ -156,7 +182,10 @@ impl Cpu {
 //            0x35 => { 53 }
 //            0x36 => { 54 }
 //            0x37 => { 55 }
-            0x38 => { self.set_carry(true); 2 }
+            0x38 => {
+                self.set_carry(true);
+                2
+            }
 //            0x39 => { 57 }
 //            0x3a => { 58 }
 //            0x3b => { 59 }
@@ -183,7 +212,10 @@ impl Cpu {
 //            0x4d => { 77 }
 //            0x4e => { 78 }
 //            0x4f => { 79 }
-//            0x50 => { 80 }
+            0x50 => {
+                let branch = self.get_overflow() == false;
+                self.branch_if(branch)
+            }
 //            0x51 => { 81 }
 //            0x52 => { 82 }
 //            0x53 => { 83 }
@@ -215,7 +247,10 @@ impl Cpu {
 //            0x6d => { 109 }
 //            0x6e => { 110 }
 //            0x6f => { 111 }
-//            0x70 => { 112 }
+            0x70 => {
+                let branch = self.get_overflow();
+                self.branch_if(branch)
+            }
 //            0x71 => { 113 }
 //            0x72 => { 114 }
 //            0x73 => { 115 }
@@ -252,7 +287,10 @@ impl Cpu {
 //            0x8d => { 141 }
 //            0x8e => { 142 }
 //            0x8f => { 143 }
-//            0x90 => { 144 }
+            0x90 => {
+                let branch = self.get_carry() == false;
+                self.branch_if(branch)
+            }
 //            0x91 => { 145 }
 //            0x92 => { 146 }
 //            0x93 => { 147 }
@@ -292,21 +330,8 @@ impl Cpu {
 //            0xae => { 174 }
 //            0xaf => { 175 }
             0xb0 => {
-                if self.get_carry() {
-                    let offset = self.mem.borrow_mut().read_signed(self.pc);
-                    self.pc = self.pc.wrapping_add(1);
-                    let old_page = self.pc >> 8;
-                    self.pc = self.pc.wrapping_add(offset as u16);
-                    let new_page = self.pc >> 8;
-                    if old_page != new_page {
-                        5
-                    } else {
-                        3
-                    }
-                } else {
-                    self.pc = self.pc.wrapping_add(1);
-                    2
-                }
+                let branch = self.get_carry();
+                self.branch_if(branch)
             }
 //            0xb1 => { 177 }
 //            0xb2 => { 178 }
@@ -339,7 +364,10 @@ impl Cpu {
 //            0xcd => { 205 }
 //            0xce => { 206 }
 //            0xcf => { 207 }
-//            0xd0 => { 208 }
+            0xd0 => {
+                let branch = self.get_zero() == false;
+                self.branch_if(branch)
+            }
 //            0xd1 => { 209 }
 //            0xd2 => { 210 }
 //            0xd3 => { 211 }
@@ -373,7 +401,10 @@ impl Cpu {
 //            0xed => { 237 }
 //            0xee => { 238 }
 //            0xef => { 239 }
-//            0xf0 => { 240 }
+            0xf0 => {
+                let branch = self.get_zero();
+                self.branch_if(branch)
+            }
 //            0xf1 => { 241 }
 //            0xf2 => { 242 }
 //            0xf3 => { 243 }
