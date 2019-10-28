@@ -31,6 +31,10 @@ impl Mem {
         }
     }
 
+    pub fn read_signed(&mut self, addr: u16) -> i8 {
+        self.read_u8(addr) as i8
+    }
+
     pub fn read_u16(&mut self, addr: u16) -> u16 {
         let lower_byte = self.read_u8(addr);
         let upper_byte = self.read_u8(addr.wrapping_add(1));

@@ -11,7 +11,7 @@ pub struct Cpu {
     pub s: u8,
     pub p: u8,
     pub cycles: u64,
-    pub mem: Rc<RefCell<Mem>>
+    pub mem: Rc<RefCell<Mem>>,
 }
 
 impl Cpu {
@@ -51,6 +51,24 @@ impl Cpu {
     pub fn set_carry(&mut self, set: bool) {
         if set { self.p = self.p | 0b00000001; } else { self.p = self.p & 0b11111110; }
     }
+    pub fn get_negative(&mut self) -> bool {
+        (self.p & 0b10000000) > 0
+    }
+    pub fn get_overflow(&mut self) -> bool {
+        (self.p & 0b01000000) > 0
+    }
+    pub fn get_decimal(&mut self) -> bool {
+        (self.p & 0b00001000) > 0
+    }
+    pub fn get_interrupt_disable(&mut self) -> bool {
+        (self.p & 0b00000100) > 0
+    }
+    pub fn get_zero(&mut self) -> bool {
+        (self.p & 0b00000010) > 0
+    }
+    pub fn get_carry(&mut self) -> bool {
+        (self.p & 0b00000001) > 0
+    }
     pub fn stack_push_u8(&mut self, n: u8) {
         self.mem.borrow_mut().write_u8(self.s as u16 | 0x100, n);
         self.s = self.s.wrapping_sub(1);
@@ -73,7 +91,7 @@ impl Cpu {
         //Emulates one opcode and returns the amount of cycles one opcode took
         let opcode = self.mem.borrow_mut().read_u8(self.pc);
         #[cfg(debug_assertions)]
-        self.log_me(opcode);
+            self.log_me(opcode);
         self.pc = self.pc.wrapping_add(1);
         match opcode {
 //            0x0 => { 0 }
@@ -100,7 +118,7 @@ impl Cpu {
 //            0x15 => { 21 }
 //            0x16 => { 22 }
 //            0x17 => { 23 }
-//            0x18 => { 24 }
+            0x18 => { self.set_carry(false); 2 }
 //            0x19 => { 25 }
 //            0x1a => { 26 }
 //            0x1b => { 27 }
@@ -108,7 +126,13 @@ impl Cpu {
 //            0x1d => { 29 }
 //            0x1e => { 30 }
 //            0x1f => { 31 }
-            0x20 => { let jmp_adr = self.mem.borrow_mut().read_u16(self.pc); self.pc = self.pc.wrapping_add(1); self.stack_push_u16(self.pc); self.pc = jmp_adr; 6 }
+            0x20 => {
+                let jmp_adr = self.mem.borrow_mut().read_u16(self.pc);
+                self.pc = self.pc.wrapping_add(1);
+                self.stack_push_u16(self.pc);
+                self.pc = jmp_adr;
+                6
+            }
 //            0x21 => { 33 }
 //            0x22 => { 34 }
 //            0x23 => { 35 }
@@ -132,7 +156,7 @@ impl Cpu {
 //            0x35 => { 53 }
 //            0x36 => { 54 }
 //            0x37 => { 55 }
-//            0x38 => { 56 }
+            0x38 => { self.set_carry(true); 2 }
 //            0x39 => { 57 }
 //            0x3a => { 58 }
 //            0x3b => { 59 }
@@ -152,7 +176,10 @@ impl Cpu {
 //            0x49 => { 73 }
 //            0x4a => { 74 }
 //            0x4b => { 75 }
-            0x4c => { self.pc = self.mem.borrow_mut().read_u16(self.pc); 3 }
+            0x4c => {
+                self.pc = self.mem.borrow_mut().read_u16(self.pc);
+                3
+            }
 //            0x4d => { 77 }
 //            0x4e => { 78 }
 //            0x4f => { 79 }
@@ -210,7 +237,12 @@ impl Cpu {
 //            0x83 => { 131 }
 //            0x84 => { 132 }
 //            0x85 => { 133 }
-            0x86 => { let ad = self.mem.borrow_mut().read_u8(self.pc); self.pc = self.pc.wrapping_add(1); self.mem.borrow_mut().write_u8(ad as u16, self.x); 3 }
+            0x86 => {
+                let ad = self.mem.borrow_mut().read_u8(self.pc);
+                self.pc = self.pc.wrapping_add(1);
+                self.mem.borrow_mut().write_u8(ad as u16, self.x);
+                3
+            }
 //            0x87 => { 135 }
 //            0x88 => { 136 }
 //            0x89 => { 137 }
@@ -238,7 +270,14 @@ impl Cpu {
 //            0x9f => { 159 }
 //            0xa0 => { 160 }
 //            0xa1 => { 161 }
-            0xa2 => { let n = self.mem.borrow_mut().read_u8(self.pc); self.pc = self.pc.wrapping_add(1); self.x = n; self.set_zero(self.x == 0); self.set_negative(self.x & 128 > 0); 2 }
+            0xa2 => {
+                let n = self.mem.borrow_mut().read_u8(self.pc);
+                self.pc = self.pc.wrapping_add(1);
+                self.x = n;
+                self.set_zero(self.x == 0);
+                self.set_negative(self.x & 128 > 0);
+                2
+            }
 //            0xa3 => { 163 }
 //            0xa4 => { 164 }
 //            0xa5 => { 165 }
@@ -252,7 +291,23 @@ impl Cpu {
 //            0xad => { 173 }
 //            0xae => { 174 }
 //            0xaf => { 175 }
-//            0xb0 => { 176 }
+            0xb0 => {
+                if self.get_carry() {
+                    let offset = self.mem.borrow_mut().read_signed(self.pc);
+                    self.pc = self.pc.wrapping_add(1);
+                    let old_page = self.pc >> 8;
+                    self.pc = self.pc.wrapping_add(offset as u16);
+                    let new_page = self.pc >> 8;
+                    if old_page != new_page {
+                        5
+                    } else {
+                        3
+                    }
+                } else {
+                    self.pc = self.pc.wrapping_add(1);
+                    2
+                }
+            }
 //            0xb1 => { 177 }
 //            0xb2 => { 178 }
 //            0xb3 => { 179 }
@@ -310,7 +365,9 @@ impl Cpu {
 //            0xe7 => { 231 }
 //            0xe8 => { 232 }
 //            0xe9 => { 233 }
-//            0xea => { 234 }
+            0xea => {
+                2
+            }
 //            0xeb => { 235 }
 //            0xec => { 236 }
 //            0xed => { 237 }
