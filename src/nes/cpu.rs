@@ -119,7 +119,10 @@ impl Cpu {
 //            0x5 => { 5 }
 //            0x6 => { 6 }
 //            0x7 => { 7 }
-//            0x8 => { 8 }
+            0x8 => {
+                self.stack_push_u8(self.p | 0b10000);
+                3
+            }
 //            0x9 => { 9 }
 //            0xa => { 10 }
 //            0xb => { 11 }
@@ -173,7 +176,14 @@ impl Cpu {
 //            0x26 => { 38 }
 //            0x27 => { 39 }
 //            0x28 => { 40 }
-//            0x29 => { 41 }
+            0x29 => {
+                let n: u8 = self.mem.borrow_mut().read_u8(self.pc);
+                self.pc = self.pc.wrapping_add(1);
+                self.a = self.a & n;
+                self.set_zero(self.a == 0);
+                self.set_negative(self.a >= 128);
+                2
+            }
 //            0x2a => { 42 }
 //            0x2b => { 43 }
 //            0x2c => { 44 }
@@ -240,7 +250,11 @@ impl Cpu {
 //            0x5d => { 93 }
 //            0x5e => { 94 }
 //            0x5f => { 95 }
-//            0x60 => { 96 }
+            0x60 => {
+                self.pc = self.stack_pop_u16();
+                self.pc = self.pc.wrapping_add(1);
+                6
+            }
 //            0x61 => { 97 }
 //            0x62 => { 98 }
 //            0x63 => { 99 }
@@ -248,7 +262,12 @@ impl Cpu {
 //            0x65 => { 101 }
 //            0x66 => { 102 }
 //            0x67 => { 103 }
-//            0x68 => { 104 }
+            0x68 => {
+                self.a = self.stack_pop_u8();
+                self.set_zero(self.a == 0);
+                self.set_negative(self.a >= 128);
+                4
+            }
 //            0x69 => { 105 }
 //            0x6a => { 106 }
 //            0x6b => { 107 }
@@ -267,7 +286,10 @@ impl Cpu {
 //            0x75 => { 117 }
 //            0x76 => { 118 }
 //            0x77 => { 119 }
-//            0x78 => { 120 }
+            0x78 => {
+                self.set_interrupt_disable(true);
+                2
+            }
 //            0x79 => { 121 }
 //            0x7a => { 122 }
 //            0x7b => { 123 }
@@ -433,7 +455,10 @@ impl Cpu {
 //            0xf5 => { 245 }
 //            0xf6 => { 246 }
 //            0xf7 => { 247 }
-//            0xf8 => { 248 }
+            0xf8 => {
+                self.set_decimal(true);
+                2
+            }
 //            0xf9 => { 249 }
 //            0xfa => { 250 }
 //            0xfb => { 251 }
