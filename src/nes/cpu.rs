@@ -123,7 +123,14 @@ impl Cpu {
                 self.stack_push_u8(self.p | 0b10000);
                 3
             }
-//            0x9 => { 9 }
+            0x9 => {
+                let n = self.mem.borrow_mut().read_u8(self.pc);
+                self.pc = self.pc.wrapping_add(1);
+                self.a = self.a | n;
+                self.set_zero(self.a == 0);
+                self.set_negative(self.a >= 128);
+                2
+            }
 //            0xa => { 10 }
 //            0xb => { 11 }
 //            0xc => { 12 }
@@ -175,7 +182,13 @@ impl Cpu {
 //            0x25 => { 37 }
 //            0x26 => { 38 }
 //            0x27 => { 39 }
-//            0x28 => { 40 }
+            0x28 => {
+                let old_b = self.p & 0b110000;
+                self.p = self.stack_pop_u8();
+                self.p = self.p & 0b11001111;
+                self.p = self.p | old_b;
+                4
+            }
             0x29 => {
                 let n: u8 = self.mem.borrow_mut().read_u8(self.pc);
                 self.pc = self.pc.wrapping_add(1);
@@ -220,7 +233,10 @@ impl Cpu {
 //            0x45 => { 69 }
 //            0x46 => { 70 }
 //            0x47 => { 71 }
-//            0x48 => { 72 }
+            0x48 => {
+                self.stack_push_u8(self.a);
+                3
+            }
 //            0x49 => { 73 }
 //            0x4a => { 74 }
 //            0x4b => { 75 }
@@ -400,7 +416,14 @@ impl Cpu {
 //            0xc6 => { 198 }
 //            0xc7 => { 199 }
 //            0xc8 => { 200 }
-//            0xc9 => { 201 }
+            0xc9 => {
+                let n = self.mem.borrow_mut().read_u8(self.pc);
+                self.pc = self.pc.wrapping_add(1);
+                self.set_negative(self.a < n);
+                self.set_zero(self.a == n);
+                self.set_carry(self.a >= n);
+                2
+            }
 //            0xca => { 202 }
 //            0xcb => { 203 }
 //            0xcc => { 204 }
@@ -418,7 +441,10 @@ impl Cpu {
 //            0xd5 => { 213 }
 //            0xd6 => { 214 }
 //            0xd7 => { 215 }
-//            0xd8 => { 216 }
+            0xd8 => {
+                self.set_decimal(false);
+                2
+            }
 //            0xd9 => { 217 }
 //            0xda => { 218 }
 //            0xdb => { 219 }
