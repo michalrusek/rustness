@@ -237,7 +237,14 @@ impl Cpu {
                 self.stack_push_u8(self.a);
                 3
             }
-//            0x49 => { 73 }
+            0x49 => {
+                let n = self.mem.borrow_mut().read_u8(self.pc);
+                self.pc = self.pc.wrapping_add(1);
+                self.a = self.a ^ n;
+                self.set_zero(self.a == 0);
+                self.set_negative(self.a >= 128);
+                2
+            }
 //            0x4a => { 74 }
 //            0x4b => { 75 }
             0x4c => {
@@ -399,7 +406,10 @@ impl Cpu {
 //            0xb5 => { 181 }
 //            0xb6 => { 182 }
 //            0xb7 => { 183 }
-//            0xb8 => { 184 }
+            0xb8 => {
+                self.set_overflow(false);
+                2
+            }
 //            0xb9 => { 185 }
 //            0xba => { 186 }
 //            0xbb => { 187 }
