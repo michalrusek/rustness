@@ -3,7 +3,6 @@ pub mod cpu;
 use cpu::Cpu;
 use std::fs;
 use std::io::Read;
-use piston_window::G2d;
 use std::cell::RefCell;
 use std::rc::Rc;
 

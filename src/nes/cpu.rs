@@ -291,7 +291,24 @@ impl Cpu {
                 self.set_negative(self.a >= 128);
                 4
             }
-//            0x69 => { 105 }
+            0x69 => {
+                let n = self.mem.borrow_mut().read_u8(self.pc);
+                self.pc = self.pc.wrapping_add(1);
+                let mut dirty = (self.a as u16).wrapping_add(n as u16);
+                let mut dirty_signed = ((self.a as i8) as i16).wrapping_add((n as i8) as i16);
+                if self.get_carry() {
+                    dirty = dirty.wrapping_add(1);
+                    dirty_signed = dirty_signed.wrapping_add(1);
+                }
+                self.a = dirty as u8;
+                self.set_carry(dirty > 0xFF);
+                self.set_zero(self.a == 0);
+                self.set_negative(self.a >= 128);
+                let a_is_signed = self.a >= 128;
+                let dirty_res_is_signed = dirty_signed < 0;
+                self.set_overflow(a_is_signed != dirty_res_is_signed);
+                2
+            }
 //            0x6a => { 106 }
 //            0x6b => { 107 }
 //            0x6c => { 108 }
@@ -429,7 +446,7 @@ impl Cpu {
             0xc9 => {
                 let n = self.mem.borrow_mut().read_u8(self.pc);
                 self.pc = self.pc.wrapping_add(1);
-                self.set_negative(self.a < n);
+                self.set_negative(self.a.wrapping_sub(n) >= 128);
                 self.set_zero(self.a == n);
                 self.set_carry(self.a >= n);
                 2
