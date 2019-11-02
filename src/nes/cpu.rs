@@ -114,6 +114,39 @@ impl Cpu {
         (adr_low_byte as u16) + ((adr_high_byte as u16) << 8)
     }
 
+    pub fn adc(&mut self, n: u8) {
+        let mut dirty = (self.a as u16).wrapping_add(n as u16);
+        let mut dirty_signed = ((self.a as i8) as i16).wrapping_add((n as i8) as i16);
+        if self.get_carry() {
+            dirty = dirty.wrapping_add(1);
+            dirty_signed = dirty_signed.wrapping_add(1);
+        }
+        self.a = dirty as u8;
+        self.set_carry(dirty > 0xFF);
+        self.set_zero(self.a == 0);
+        self.set_negative(self.a >= 128);
+        let a_is_signed = self.a >= 128;
+        let dirty_res_is_signed = dirty_signed < 0;
+        self.set_overflow(a_is_signed != dirty_res_is_signed);
+    }
+
+    pub fn sbc(&mut self, num_orig: u8) {
+        let n = !num_orig;
+        let mut dirty = (self.a as u16).wrapping_add(n as u16);
+        let mut dirty_signed = ((self.a as i8) as i16).wrapping_add((n as i8) as i16);
+        if self.get_carry() {
+            dirty = dirty.wrapping_add(1);
+            dirty_signed = dirty_signed.wrapping_add(1);
+        }
+        self.a = dirty as u8;
+        self.set_carry(dirty > 0xFF);
+        self.set_zero(self.a == 0);
+        self.set_negative(self.a >= 128);
+        let a_is_signed = self.a >= 128;
+        let dirty_res_is_signed = dirty_signed < 0;
+        self.set_overflow(a_is_signed != dirty_res_is_signed);
+    }
+
     pub fn run_next_opcode(&mut self) -> u8 {
         //Emulates one opcode and returns the amount of cycles one opcode took
         let opcode = self.mem.borrow_mut().read_u8(self.pc);
@@ -132,8 +165,26 @@ impl Cpu {
 //            0x2 => { 2 }
 //            0x3 => { 3 }
 //            0x4 => { 4 }
-//            0x5 => { 5 }
-//            0x6 => { 6 }
+            0x5 => {
+                let adr = self.mem.borrow_mut().read_u8(self.pc);
+                self.pc = self.pc.wrapping_add(1);
+                let n = self.mem.borrow_mut().read_u8(adr as u16);
+                self.a = self.a | n;
+                self.set_zero(self.a == 0);
+                self.set_negative(self.a >= 128);
+                3
+            }
+            0x6 => {
+                let adr = self.mem.borrow_mut().read_u8(self.pc);
+                self.pc = self.pc.wrapping_add(1);
+                let mut n = self.mem.borrow_mut().read_u8(adr as u16);
+                self.set_carry(n >= 128);
+                n = n << 1;
+                self.set_zero(n == 0);
+                self.set_negative(n >= 128);
+                self.mem.borrow_mut().write_u8(adr as u16, n);
+                5
+            }
 //            0x7 => { 7 }
             0x8 => {
                 self.stack_push_u8(self.p | 0b10000);
@@ -188,7 +239,13 @@ impl Cpu {
                 self.pc = jmp_adr;
                 6
             }
-//            0x21 => { 33 }
+            0x21 => {
+                let adr = self.get_indirect_x_addr();
+                self.a = self.a & self.mem.borrow_mut().read_u8(adr);
+                self.set_zero(self.a == 0);
+                self.set_negative(self.a >= 128);
+                6
+            }
 //            0x22 => { 34 }
 //            0x23 => { 35 }
             0x24 => {
@@ -201,8 +258,32 @@ impl Cpu {
                 self.set_overflow(((n >> 6) & 0b1) > 0);
                 3
             }
-//            0x25 => { 37 }
-//            0x26 => { 38 }
+            0x25 => {
+                let adr = self.mem.borrow_mut().read_u8(self.pc);
+                self.pc = self.pc.wrapping_add(1);
+                let n = self.mem.borrow_mut().read_u8(adr as u16);
+                self.a = self.a & n;
+                self.set_zero(self.a == 0);
+                self.set_negative(self.a >= 128);
+                3
+            }
+            0x26 => {
+                let adr = self.mem.borrow_mut().read_u8(self.pc);
+                self.pc = self.pc.wrapping_add(1);
+                let mut n = self.mem.borrow_mut().read_u8(adr as u16);
+                let c: u8;
+                if self.get_carry() {
+                    c = 1;
+                } else {
+                    c = 0;
+                }
+                self.set_carry((n & 128) == 128);
+                n = (n << 1) | c;
+                self.set_zero(n == 0);
+                self.set_negative(n >= 128);
+                self.mem.borrow_mut().write_u8(adr as u16, n);
+                5
+            }
 //            0x27 => { 39 }
             0x28 => {
                 let old_b = self.p & 0b110000;
@@ -265,12 +346,36 @@ impl Cpu {
                 self.pc = self.stack_pop_u16();
                 6
             }
-//            0x41 => { 65 }
+            0x41 => {
+                let adr = self.get_indirect_x_addr();
+                self.a = self.a ^ self.mem.borrow_mut().read_u8(adr);
+                self.set_zero(self.a == 0);
+                self.set_negative(self.a >= 128);
+                6
+            }
 //            0x42 => { 66 }
 //            0x43 => { 67 }
 //            0x44 => { 68 }
-//            0x45 => { 69 }
-//            0x46 => { 70 }
+            0x45 => {
+                let adr = self.mem.borrow_mut().read_u8(self.pc);
+                self.pc = self.pc.wrapping_add(1);
+                let n = self.mem.borrow_mut().read_u8(adr as u16);
+                self.a = self.a ^ n;
+                self.set_zero(self.a == 0);
+                self.set_negative(self.a >= 128);
+                3
+            }
+            0x46 => {
+                let adr = self.mem.borrow_mut().read_u8(self.pc);
+                self.pc = self.pc.wrapping_add(1);
+                let mut n = self.mem.borrow_mut().read_u8(adr as u16);
+                self.set_carry((n & 1) == 1);
+                n = n >> 1;
+                self.set_zero(n == 0);
+                self.set_negative(n >= 128);
+                self.mem.borrow_mut().write_u8(adr as u16, n);
+                5
+            }
 //            0x47 => { 71 }
             0x48 => {
                 self.stack_push_u8(self.a);
@@ -323,12 +428,39 @@ impl Cpu {
                 self.pc = self.pc.wrapping_add(1);
                 6
             }
-//            0x61 => { 97 }
+            0x61 => {
+                let adr = self.get_indirect_x_addr();
+                let n = self.mem.borrow_mut().read_u8(adr);
+                self.adc(n);
+                6
+            }
 //            0x62 => { 98 }
 //            0x63 => { 99 }
 //            0x64 => { 100 }
-//            0x65 => { 101 }
-//            0x66 => { 102 }
+            0x65 => {
+                let adr = self.mem.borrow_mut().read_u8(self.pc);
+                self.pc = self.pc.wrapping_add(1);
+                let n = self.mem.borrow_mut().read_u8(adr as u16);
+                self.adc(n);
+                3
+            }
+            0x66 => {
+                let adr = self.mem.borrow_mut().read_u8(self.pc);
+                self.pc = self.pc.wrapping_add(1);
+                let mut n = self.mem.borrow_mut().read_u8(adr as u16);
+                let c: u8;
+                if self.get_carry() {
+                    c = 128;
+                } else {
+                    c = 0;
+                }
+                self.set_carry((n & 1) == 1);
+                n = (n >> 1) | c;
+                self.set_zero(n == 0);
+                self.set_negative(n >= 128);
+                self.mem.borrow_mut().write_u8(adr as u16, n);
+                5
+            }
 //            0x67 => { 103 }
             0x68 => {
                 self.a = self.stack_pop_u8();
@@ -339,19 +471,7 @@ impl Cpu {
             0x69 => {
                 let n = self.mem.borrow_mut().read_u8(self.pc);
                 self.pc = self.pc.wrapping_add(1);
-                let mut dirty = (self.a as u16).wrapping_add(n as u16);
-                let mut dirty_signed = ((self.a as i8) as i16).wrapping_add((n as i8) as i16);
-                if self.get_carry() {
-                    dirty = dirty.wrapping_add(1);
-                    dirty_signed = dirty_signed.wrapping_add(1);
-                }
-                self.a = dirty as u8;
-                self.set_carry(dirty > 0xFF);
-                self.set_zero(self.a == 0);
-                self.set_negative(self.a >= 128);
-                let a_is_signed = self.a >= 128;
-                let dirty_res_is_signed = dirty_signed < 0;
-                self.set_overflow(a_is_signed != dirty_res_is_signed);
+                self.adc(n);
                 2
             }
             0x6a => {
@@ -402,7 +522,12 @@ impl Cpu {
             }
 //            0x82 => { 130 }
 //            0x83 => { 131 }
-//            0x84 => { 132 }
+            0x84 => {
+                let adr = self.mem.borrow_mut().read_u8(self.pc);
+                self.pc = self.pc.wrapping_add(1);
+                self.mem.borrow_mut().write_u8(adr as u16, self.y);
+                3
+            }
             0x85 => {
                 let ad = self.mem.borrow_mut().read_u8(self.pc);
                 self.pc = self.pc.wrapping_add(1);
@@ -495,7 +620,14 @@ impl Cpu {
                 2
             }
 //            0xa3 => { 163 }
-//            0xa4 => { 164 }
+            0xa4 => {
+                let adr = self.mem.borrow_mut().read_u8(self.pc);
+                self.pc = self.pc.wrapping_add(1);
+                self.y = self.mem.borrow_mut().read_u8(adr as u16);
+                self.set_zero(self.y == 0);
+                self.set_negative(self.y >= 128);
+                3
+            }
             0xa5 => {
                 let adr = self.mem.borrow_mut().read_u8(self.pc);
                 self.pc = self.pc.wrapping_add(1);
@@ -504,7 +636,14 @@ impl Cpu {
                 self.set_negative(self.a >= 128);
                 3
             }
-//            0xa6 => { 166 }
+            0xa6 => {
+                let adr = self.mem.borrow_mut().read_u8(self.pc);
+                self.pc = self.pc.wrapping_add(1);
+                self.x = self.mem.borrow_mut().read_u8(adr as u16);
+                self.set_zero(self.x == 0);
+                self.set_negative(self.x >= 128);
+                3
+            }
 //            0xa7 => { 167 }
             0xa8 => {
                 self.y = self.a;
@@ -580,12 +719,43 @@ impl Cpu {
                 self.set_carry(self.y >= n);
                 2
             }
-//            0xc1 => { 193 }
+            0xc1 => {
+                let adr = self.get_indirect_x_addr();
+                let n = self.mem.borrow_mut().read_u8(adr);
+                self.set_negative(self.a.wrapping_sub(n) >= 128);
+                self.set_zero(self.a == n);
+                self.set_carry(self.a >= n);
+                6
+            }
 //            0xc2 => { 194 }
 //            0xc3 => { 195 }
-//            0xc4 => { 196 }
-//            0xc5 => { 197 }
-//            0xc6 => { 198 }
+            0xc4 => {
+                let adr = self.mem.borrow_mut().read_u8(self.pc);
+                self.pc = self.pc.wrapping_add(1);
+                let n = self.mem.borrow_mut().read_u8(adr as u16);
+                self.set_negative(self.y.wrapping_sub(n) >= 128);
+                self.set_zero(self.y == n);
+                self.set_carry(self.y >= n);
+                3
+            }
+            0xc5 => {
+                let adr = self.mem.borrow_mut().read_u8(self.pc);
+                self.pc = self.pc.wrapping_add(1);
+                let n = self.mem.borrow_mut().read_u8(adr as u16);
+                self.set_negative(self.a.wrapping_sub(n) >= 128);
+                self.set_zero(self.a == n);
+                self.set_carry(self.a >= n);
+                3
+            }
+            0xc6 => {
+                let adr = self.mem.borrow_mut().read_u8(self.pc);
+                self.pc = self.pc.wrapping_add(1);
+                let n = self.mem.borrow_mut().read_u8(adr as u16).wrapping_sub(1);
+                self.mem.borrow_mut().write_u8(adr as u16, n);
+                self.set_zero(n == 0);
+                self.set_negative(n >= 128);
+                5
+            }
 //            0xc7 => { 199 }
             0xc8 => {
                 self.y = self.y.wrapping_add(1);
@@ -642,12 +812,39 @@ impl Cpu {
                 self.set_carry(self.x >= n);
                 2
             }
-//            0xe1 => { 225 }
+            0xe1 => {
+                let adr = self.get_indirect_x_addr();
+                let n = self.mem.borrow_mut().read_u8(adr);
+                self.sbc(n);
+                6
+            }
 //            0xe2 => { 226 }
 //            0xe3 => { 227 }
-//            0xe4 => { 228 }
-//            0xe5 => { 229 }
-//            0xe6 => { 230 }
+            0xe4 => {
+                let adr = self.mem.borrow_mut().read_u8(self.pc);
+                self.pc = self.pc.wrapping_add(1);
+                let n = self.mem.borrow_mut().read_u8(adr as u16);
+                self.set_negative(self.x.wrapping_sub(n) >= 128);
+                self.set_zero(self.x == n);
+                self.set_carry(self.x >= n);
+                3
+            }
+            0xe5 => {
+                let adr = self.mem.borrow_mut().read_u8(self.pc);
+                self.pc = self.pc.wrapping_add(1);
+                let n = self.mem.borrow_mut().read_u8(adr as u16);
+                self.sbc(n);
+                3
+            }
+            0xe6 => {
+                let adr = self.mem.borrow_mut().read_u8(self.pc);
+                self.pc = self.pc.wrapping_add(1);
+                let n = self.mem.borrow_mut().read_u8(adr as u16).wrapping_add(1);
+                self.mem.borrow_mut().write_u8(adr as u16, n);
+                self.set_zero(n == 0);
+                self.set_negative(n >= 128);
+                5
+            }
 //            0xe7 => { 231 }
             0xe8 => {
                 self.x = self.x.wrapping_add(1);
@@ -656,21 +853,9 @@ impl Cpu {
                 2
             }
             0xe9 => {
-                let n: u8 = !self.mem.borrow_mut().read_u8(self.pc);
+                let n: u8 = self.mem.borrow_mut().read_u8(self.pc);
                 self.pc = self.pc.wrapping_add(1);
-                let mut dirty = (self.a as u16).wrapping_add(n as u16);
-                let mut dirty_signed = ((self.a as i8) as i16).wrapping_add((n as i8) as i16);
-                if self.get_carry() {
-                    dirty = dirty.wrapping_add(1);
-                    dirty_signed = dirty_signed.wrapping_add(1);
-                }
-                self.a = dirty as u8;
-                self.set_carry(dirty > 0xFF);
-                self.set_zero(self.a == 0);
-                self.set_negative(self.a >= 128);
-                let a_is_signed = self.a >= 128;
-                let dirty_res_is_signed = dirty_signed < 0;
-                self.set_overflow(a_is_signed != dirty_res_is_signed);
+                self.sbc(n);
                 2
             }
             0xea => {
