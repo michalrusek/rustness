@@ -114,6 +114,23 @@ impl Cpu {
         (adr_low_byte as u16) + ((adr_high_byte as u16) << 8)
     }
 
+    pub fn get_indirect_y_addr(&mut self) -> (u16, u8) {
+        let adr_of_adr_base = self.mem.borrow_mut().read_u8(self.pc);
+        self.pc = self.pc.wrapping_add(1);
+        let low_byte = self.mem.borrow_mut().read_u8(adr_of_adr_base as u16);
+        let high_byte = self.mem.borrow_mut()
+            .read_u8(adr_of_adr_base.wrapping_add(1) as u16);
+        let mut adr_of_adr_full = ((high_byte as u16) << 8) + low_byte as u16;
+        adr_of_adr_full = adr_of_adr_full.wrapping_add(self.y as u16);
+
+        let additional_cycle_required = (low_byte as u16 + self.y as u16) > 0xFF;
+        let mut additional_cycle = 0;
+        if additional_cycle_required {
+            additional_cycle = 1;
+        }
+        (adr_of_adr_full, additional_cycle)
+    }
+
     pub fn adc(&mut self, n: u8) {
         let mut dirty = (self.a as u16).wrapping_add(n as u16);
         let mut dirty_signed = ((self.a as i8) as i16).wrapping_add((n as i8) as i16);
@@ -796,7 +813,13 @@ impl Cpu {
                 let branch = self.get_carry();
                 self.branch_if(branch)
             }
-//            0xb1 => { 177 }
+            0xb1 => {
+                let (adr, additional_cycles) = self.get_indirect_y_addr();
+                self.a = self.mem.borrow_mut().read_u8(adr);
+                self.set_zero(self.a == 0);
+                self.set_negative(self.a >= 128);
+                5 + additional_cycles
+            }
 //            0xb2 => { 178 }
 //            0xb3 => { 179 }
 //            0xb4 => { 180 }
