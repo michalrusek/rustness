@@ -104,6 +104,16 @@ impl Cpu {
         }
     }
 
+    pub fn get_indirect_x_addr(&mut self) -> u16 {
+        let adr_of_adr_base = self.mem.borrow_mut().read_u8(self.pc);
+        self.pc = self.pc.wrapping_add(1);
+        let adr_of_adr_full = adr_of_adr_base.wrapping_add(self.x);
+        let adr_low_byte = self.mem.borrow_mut().read_u8(adr_of_adr_full as u16);
+        let adr_high_byte = self.mem.borrow_mut().read_u8(
+            adr_of_adr_full.wrapping_add(1) as u16);
+        (adr_low_byte as u16) + ((adr_high_byte as u16) << 8)
+    }
+
     pub fn run_next_opcode(&mut self) -> u8 {
         //Emulates one opcode and returns the amount of cycles one opcode took
         let opcode = self.mem.borrow_mut().read_u8(self.pc);
@@ -112,7 +122,13 @@ impl Cpu {
         self.pc = self.pc.wrapping_add(1);
         match opcode {
 //            0x0 => { 0 }
-//            0x1 => { 1 }
+            0x1 => {
+                let adr = self.get_indirect_x_addr();
+                self.a = self.a | self.mem.borrow_mut().read_u8(adr);
+                self.set_zero(self.a == 0);
+                self.set_negative(self.a >= 128);
+                6
+            }
 //            0x2 => { 2 }
 //            0x3 => { 3 }
 //            0x4 => { 4 }
@@ -379,7 +395,11 @@ impl Cpu {
 //            0x7e => { 126 }
 //            0x7f => { 127 }
 //            0x80 => { 128 }
-//            0x81 => { 129 }
+            0x81 => {
+                let adr_full = self.get_indirect_x_addr();
+                self.mem.borrow_mut().write_u8(adr_full, self.a);
+                6
+            }
 //            0x82 => { 130 }
 //            0x83 => { 131 }
 //            0x84 => { 132 }
@@ -459,7 +479,13 @@ impl Cpu {
                 self.set_negative(self.y >= 128);
                 2
             }
-//            0xa1 => { 161 }
+            0xa1 => {
+                let adr_full = self.get_indirect_x_addr();
+                self.a = self.mem.borrow_mut().read_u8(adr_full);
+                self.set_zero(self.a == 0);
+                self.set_negative(self.a >= 128);
+                6
+            }
             0xa2 => {
                 let n = self.mem.borrow_mut().read_u8(self.pc);
                 self.pc = self.pc.wrapping_add(1);
