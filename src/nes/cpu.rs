@@ -217,7 +217,10 @@ impl Cpu {
             }
 //            0x2 => { 2 }
 //            0x3 => { 3 }
-//            0x4 => { 4 }
+            0x4 => {
+                self.pc = self.pc.wrapping_add(1);
+                3
+            }
             0x5 => {
                 let adr = self.mem.borrow_mut().read_u8(self.pc);
                 self.pc = self.pc.wrapping_add(1);
@@ -259,7 +262,10 @@ impl Cpu {
                 2
             }
 //            0xb => { 11 }
-//            0xc => { 12 }
+            0xc => {
+                self.pc = self.pc.wrapping_add(2);
+                4
+            }
             0xd => {
                 let adr = self.mem.borrow_mut().read_u16(self.pc);
                 self.pc = self.pc.wrapping_add(2);
@@ -295,7 +301,10 @@ impl Cpu {
             }
 //            0x12 => { 18 }
 //            0x13 => { 19 }
-//            0x14 => { 20 }
+            0x14 => {
+                self.pc = self.pc.wrapping_add(1);
+                4
+            }
             0x15 => {
                 let adr = self.mem.borrow_mut().read_u8(self.pc).wrapping_add(self.x) as u16;
                 self.pc = self.pc.wrapping_add(1);
@@ -331,7 +340,10 @@ impl Cpu {
             }
 //            0x1a => { 26 }
 //            0x1b => { 27 }
-//            0x1c => { 28 }
+            0x1c => {
+                let (adr, additional_cycles) = self.get_absolute_x_addr();
+                4 + additional_cycles
+            }
             0x1d => {
                 let (adr, additional_cycles) = self.get_absolute_x_addr();
                 let n = self.mem.borrow_mut().read_u8(adr);
@@ -484,7 +496,10 @@ impl Cpu {
             }
 //            0x32 => { 50 }
 //            0x33 => { 51 }
-//            0x34 => { 52 }
+            0x34 => {
+                self.pc = self.pc.wrapping_add(1);
+                4
+            }
             0x35 => {
                 let adr = self.mem.borrow_mut().read_u8(self.pc).wrapping_add(self.x) as u16;
                 self.pc = self.pc.wrapping_add(1);
@@ -526,7 +541,10 @@ impl Cpu {
             }
 //            0x3a => { 58 }
 //            0x3b => { 59 }
-//            0x3c => { 60 }
+            0x3c => {
+                let (adr, additional_cycles) = self.get_absolute_x_addr();
+                4 + additional_cycles
+            }
             0x3d => {
                 let (adr, additional_cycles) = self.get_absolute_x_addr();
                 let n = self.mem.borrow_mut().read_u8(adr);
@@ -567,7 +585,10 @@ impl Cpu {
             }
 //            0x42 => { 66 }
 //            0x43 => { 67 }
-//            0x44 => { 68 }
+            0x44 => {
+                self.pc = self.pc.wrapping_add(1);
+                3
+            }
             0x45 => {
                 let adr = self.mem.borrow_mut().read_u8(self.pc);
                 self.pc = self.pc.wrapping_add(1);
@@ -648,7 +669,10 @@ impl Cpu {
             }
 //            0x52 => { 82 }
 //            0x53 => { 83 }
-//            0x54 => { 84 }
+            0x54 => {
+                self.pc = self.pc.wrapping_add(1);
+                4
+            }
             0x55 => {
                 let adr = self.mem.borrow_mut().read_u8(self.pc).wrapping_add(self.x) as u16;
                 self.pc = self.pc.wrapping_add(1);
@@ -681,7 +705,10 @@ impl Cpu {
             }
 //            0x5a => { 90 }
 //            0x5b => { 91 }
-//            0x5c => { 92 }
+            0x5c => {
+                let (adr, additional_cycles) = self.get_absolute_x_addr();
+                4 + additional_cycles
+            }
             0x5d => {
                 let (adr, additional_cycles) = self.get_absolute_x_addr();
                 let n = self.mem.borrow_mut().read_u8(adr);
@@ -714,7 +741,10 @@ impl Cpu {
             }
 //            0x62 => { 98 }
 //            0x63 => { 99 }
-//            0x64 => { 100 }
+            0x64 => {
+                self.pc = self.pc.wrapping_add(1);
+                3
+            }
             0x65 => {
                 let adr = self.mem.borrow_mut().read_u8(self.pc);
                 self.pc = self.pc.wrapping_add(1);
@@ -815,7 +845,10 @@ impl Cpu {
             }
 //            0x72 => { 114 }
 //            0x73 => { 115 }
-//            0x74 => { 116 }
+            0x74 => {
+                self.pc = self.pc.wrapping_add(1);
+                4
+            }
             0x75 => {
                 let adr = self.mem.borrow_mut().read_u8(self.pc).wrapping_add(self.x) as u16;
                 self.pc = self.pc.wrapping_add(1);
@@ -853,7 +886,10 @@ impl Cpu {
             }
 //            0x7a => { 122 }
 //            0x7b => { 123 }
-//            0x7c => { 124 }
+            0x7c => {
+                let (adr, additional_cycles) = self.get_absolute_x_addr();
+                4 + additional_cycles
+            }
             0x7d => {
                 let (adr, additional_cycles) = self.get_absolute_x_addr();
                 let n = self.mem.borrow_mut().read_u8(adr);
@@ -877,13 +913,19 @@ impl Cpu {
                 7
             }
 //            0x7f => { 127 }
-//            0x80 => { 128 }
+            0x80 => {
+                self.pc = self.pc.wrapping_add(1);
+                2
+            }
             0x81 => {
                 let adr_full = self.get_indirect_x_addr();
                 self.mem.borrow_mut().write_u8(adr_full, self.a);
                 6
             }
-//            0x82 => { 130 }
+            0x82 => {
+                self.pc = self.pc.wrapping_add(1);
+                2
+            }
 //            0x83 => { 131 }
             0x84 => {
                 let adr = self.mem.borrow_mut().read_u8(self.pc);
@@ -910,7 +952,10 @@ impl Cpu {
                 self.set_negative(self.y >= 128);
                 2
             }
-//            0x89 => { 137 }
+            0x89 => {
+                self.pc = self.pc.wrapping_add(1);
+                2
+            }
             0x8a => {
                 self.a = self.x;
                 self.set_zero(self.a == 0);
@@ -1156,7 +1201,13 @@ impl Cpu {
                 self.set_negative(self.a >= 128);
                 4 + additional_cycles
             }
-//            0xbe => { 190 }
+            0xbe => {
+                let (adr, additional_cycles) = self.get_absolute_y_addr();
+                self.x = self.mem.borrow_mut().read_u8(adr);
+                self.set_zero(self.x == 0);
+                self.set_negative(self.x >= 128);
+                4 + additional_cycles
+            }
 //            0xbf => { 191 }
             0xc0 => {
                 let n = self.mem.borrow_mut().read_u8(self.pc);
@@ -1174,7 +1225,10 @@ impl Cpu {
                 self.set_carry(self.a >= n);
                 6
             }
-//            0xc2 => { 194 }
+            0xc2 => {
+                self.pc = self.pc.wrapping_add(1);
+                2
+            }
 //            0xc3 => { 195 }
             0xc4 => {
                 let adr = self.mem.borrow_mut().read_u8(self.pc);
@@ -1267,7 +1321,10 @@ impl Cpu {
             }
 //            0xd2 => { 210 }
 //            0xd3 => { 211 }
-//            0xd4 => { 212 }
+            0xd4 => {
+                self.pc = self.pc.wrapping_add(1);
+                4
+            }
             0xd5 => {
                 let adr = self.mem.borrow_mut().read_u8(self.pc).wrapping_add(self.x) as u16;
                 self.pc = self.pc.wrapping_add(1);
@@ -1301,7 +1358,10 @@ impl Cpu {
             }
 //            0xda => { 218 }
 //            0xdb => { 219 }
-//            0xdc => { 220 }
+            0xdc => {
+                let (adr, additional_cycles) = self.get_absolute_x_addr();
+                4 + additional_cycles
+            }
             0xdd => {
                 let (adr, additional_cycles) = self.get_absolute_x_addr();
                 let n = self.mem.borrow_mut().read_u8(adr);
@@ -1333,7 +1393,10 @@ impl Cpu {
                 self.sbc(n);
                 6
             }
-//            0xe2 => { 226 }
+            0xe2 => {
+                self.pc = self.pc.wrapping_add(1);
+                2
+            }
 //            0xe3 => { 227 }
             0xe4 => {
                 let adr = self.mem.borrow_mut().read_u8(self.pc);
@@ -1415,7 +1478,10 @@ impl Cpu {
             }
 //            0xf2 => { 242 }
 //            0xf3 => { 243 }
-//            0xf4 => { 244 }
+            0xf4 => {
+                self.pc = self.pc.wrapping_add(1);
+                4
+            }
             0xf5 => {
                 let adr = self.mem.borrow_mut().read_u8(self.pc).wrapping_add(self.x) as u16;
                 self.pc = self.pc.wrapping_add(1);
@@ -1445,7 +1511,10 @@ impl Cpu {
             }
 //            0xfa => { 250 }
 //            0xfb => { 251 }
-//            0xfc => { 252 }
+            0xfc => {
+                let (adr, additional_cycles) = self.get_absolute_x_addr();
+                4 + additional_cycles
+            }
             0xfd => {
                 let (adr, additional_cycles) = self.get_absolute_x_addr();
                 let n = self.mem.borrow_mut().read_u8(adr);
