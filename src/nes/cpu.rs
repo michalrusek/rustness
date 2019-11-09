@@ -15,9 +15,9 @@ pub struct Cpu {
 }
 
 impl Cpu {
-    pub fn new(mem: Rc<RefCell<Mem>>) -> Cpu {
-        let pc = 0xC000; // automatic tests in nestest start at this address
-        Cpu { pc, a: 0, x: 0, y: 0, s: 0xFD, p: 0x24, mem: Rc::clone(&mem), cycles: 7 }
+    pub fn new(mem: &Rc<RefCell<Mem>>) -> Cpu {
+        let pc = mem.borrow_mut().read_u16(0xFFFC);
+        Cpu { pc, a: 0, x: 0, y: 0, s: 0xFD, p: 0x24, mem: Rc::clone(mem), cycles: 7 }
     }
 
     pub fn log_me(&self, opcode: u8) {
@@ -194,6 +194,19 @@ impl Cpu {
     }
 
     pub fn run_next_opcode(&mut self) -> u8 {
+        //Serve interrupts first
+        let interrupt_disable = self.get_interrupt_disable();
+        if self.mem.borrow_mut().irq == 0 && !interrupt_disable {
+            self.set_interrupt_disable(true);
+            self.mem.borrow_mut().irq = 1;
+            self.stack_push_u16(self.pc);
+            self.stack_push_u8(self.p | 0b10000);
+            self.pc = self.mem.borrow_mut().read_u16(0xFFFE);
+            self.p = self.p & 0b11001111;
+            self.p = self.p | 0b100000;
+            return 7;
+        }
+
         //Emulates one opcode and returns the amount of cycles one opcode took
         let opcode = self.mem.borrow_mut().read_u8(self.pc);
         #[cfg(debug_assertions)]
@@ -2094,7 +2107,7 @@ impl Cpu {
                 self.sbc(n);
                 7
             }
-            _ => panic!("Unimplemented!: 0x{:X}", opcode)
+            _ => panic!("Unimplemented!: 0x{:X} (at 0x{:X}, cycles:{:?})", opcode, self.pc, self.cycles)
         }
     }
 }
