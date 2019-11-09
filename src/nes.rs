@@ -8,6 +8,7 @@ use std::io::Read;
 use std::cell::RefCell;
 use std::rc::Rc;
 use piston_window::PistonWindow;
+use opengl_graphics::OpenGL;
 
 
 pub struct Mem {
@@ -18,7 +19,7 @@ pub struct Mem {
     pub log_string: String,
     pub irq: u8,
     ppu_target_adr: u16,
-    ppu_writing_high_adress_bit: bool
+    ppu_writing_high_adress_bit: bool,
 }
 
 impl Mem {
@@ -45,7 +46,7 @@ impl Mem {
             0x8000..=0xFFFF => {
                 let mut real_addr = addr - 0x8000;
 //                if self.pgr_rom.len() <= 0x4000 {
-                    real_addr = real_addr % 0x4000;
+                real_addr = real_addr % 0x4000;
 //                }
                 self.pgr_rom[real_addr as usize]
             }
@@ -89,7 +90,7 @@ impl Mem {
                     _ => ()
                 }
             }
-            _ => { }
+            _ => {}
         }
     }
 
@@ -127,7 +128,8 @@ pub struct Nes {
 }
 
 impl Nes {
-    pub fn new(filepath: &str, window: &mut PistonWindow) -> Nes {
+    pub fn new(filepath: &str, window: &mut PistonWindow, opengl: OpenGL,
+               (width, height): (u32, u32)) -> Nes {
         //Load in the game rom and return the emulator
         let mut file = fs::File::open(filepath).unwrap();
         let mut rom_bytes: Vec<u8> = vec![];
@@ -135,7 +137,6 @@ impl Nes {
 
         //Split INES file into header and rom bytes
         // (there are also CHR rom data there, but we don't really care about them right now)
-        //TODO: Care about CHR rom data
         //TODO: Parse rom header properly
         let (rom_header_bytes, rom) = rom_bytes.split_at(16);
         let pgr_length = rom_header_bytes[4] as u64 * 16384;
@@ -143,15 +144,23 @@ impl Nes {
         let (pgr_rom, chr_rom_and_rest) = rom.split_at(pgr_length as usize);
         let (chr_rom, rest) = chr_rom_and_rest.split_at(chr_length as usize);
         let mem = Rc::new(RefCell::new(
-            Mem { ram: [0; 0x800], vram: [0; 0x4000], pgr_rom: pgr_rom.to_vec(), chr_rom: chr_rom.to_vec(), log_string: "".to_string(), irq: 1,
-                ppu_target_adr: 0, ppu_writing_high_adress_bit: true }
+            Mem {
+                ram: [0; 0x800],
+                vram: [0; 0x4000],
+                pgr_rom: pgr_rom.to_vec(),
+                chr_rom: chr_rom.to_vec(),
+                log_string: "".to_string(),
+                irq: 1,
+                ppu_target_adr: 0,
+                ppu_writing_high_adress_bit: true,
+            }
         ));
 
         Nes {
             rom_header: rom_header_bytes.to_vec(),
             mem: Rc::clone(&mem),
             cpu: Cpu::new(&mem),
-            ppu: Ppu::new(&mem, window)
+            ppu: Ppu::new(&mem, window, opengl, (width, height)),
         }
     }
 
@@ -168,9 +177,8 @@ impl Nes {
 //        println!("LOOP!");
     }
 
-    pub fn render_frame(&mut self, c: piston_window::context::Context,
-                        g: &mut piston_window::G2d) {
-        self.ppu.render(c, g);
+    pub fn render_frame(&mut self, r: piston_window::RenderArgs) {
+        self.ppu.render(r);
     }
 }
 

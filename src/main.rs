@@ -20,7 +20,7 @@ fn main() {
             .unwrap();
 
     //Initialize the emulator
-    let mut n = Nes::new("./roms/nestest.nes", &mut window);
+    let mut n = Nes::new("./roms/nestest.nes", &mut window, opengl, (width, height));
 
     //TODO: REMOVE THIS TESTING CODE
 //    let file = File::open("./roms/nestest.log.txt").unwrap();
@@ -31,30 +31,14 @@ fn main() {
 
     //Loop through window events - this loops at *refresh_rate* right now
     //TODO: Make it loop at 60fps constantly
-    let mut gl = opengl_graphics::GlGraphics::new(opengl);
 
-    let mut canvas = im::ImageBuffer::new(width, height);
-    let mut texture = opengl_graphics::Texture::from_image(&canvas, &opengl_graphics::TextureSettings::new());
-    let img = Image::new().rect(graphics::rectangle::rectangle_by_corners(0.0, 0.0,width as f64, height as f64));
 
     while let Some(event) = window.next() {
         if let Some(r) = event.render_args() {
-            texture.update(&canvas);
-
-            let c = gl.draw_begin(r.viewport());
-            graphics::clear([0.0, 0.0, 0.0, 1.0], &mut gl);
-
-            graphics::image(&texture, c.transform, &mut gl);
-
-            gl.draw_end();
+            n.render_frame(r);
         }
 
         if let Some(u) = event.update_args() {
-            for i in 0..400_000 {
-                let x = i % 800;
-                let y = i / 800;
-                canvas.put_pixel(x, y, im::Rgba([255, 255, 255, 255]));
-            }
             n.emulate_frame();
 //            assert_eq!(n.mem.borrow_mut().log_string, lines_iter.next().unwrap());
 //            println!("Line {:?} is okay.", line_number);
