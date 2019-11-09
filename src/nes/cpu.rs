@@ -207,6 +207,18 @@ impl Cpu {
             return 7;
         }
 
+        if self.mem.borrow_mut().get_nmi_occured() {
+            self.set_interrupt_disable(true);
+            self.mem.borrow_mut().irq = 1;
+            self.stack_push_u16(self.pc);
+            self.stack_push_u8(self.p | 0b10000);
+            self.pc = self.mem.borrow_mut().read_u16(0xFFFA);
+            self.p = self.p & 0b11001111;
+            self.p = self.p | 0b100000;
+            self.mem.borrow_mut().set_nmi_occured(false);
+            return 7;
+        }
+
         //Emulates one opcode and returns the amount of cycles one opcode took
         let opcode = self.mem.borrow_mut().read_u8(self.pc);
         #[cfg(debug_assertions)]

@@ -19,10 +19,29 @@ pub struct Mem {
     pub log_string: String,
     pub irq: u8,
     ppu_target_adr: u16,
+    val_to_write_to_vram: u8,
     ppu_writing_high_adress_bit: bool,
+    ppu_stat: u8,
+    nmi: bool
 }
 
 impl Mem {
+    pub fn set_nmi_occured(&mut self, set: bool) {
+        self.nmi = set;
+    }
+    pub fn get_nmi_occured(&mut self) -> bool {
+        self.nmi
+    }
+    pub fn set_vblank(&mut self, set: bool) {
+        if set {
+            self.ppu_stat |= 128;
+        } else {
+            self.ppu_stat & 0b01111111;
+        }
+    }
+    pub fn get_vblank(&mut self) -> bool{
+        (self.ppu_stat & 128) >= 0
+    }
     pub fn read_u8(&mut self, addr: u16) -> u8 {
         match addr {
             0x0..=0x17FF => {
@@ -30,10 +49,12 @@ impl Mem {
             }
             0x2000..=0x3FFF => {
                 let ppu_reg = addr % 8;
-//                println!("Reading from: {:?}", ppu_reg);
+                println!("Reading ppu reg: {:?}", ppu_reg);
                 match ppu_reg {
                     2 => {
-                        return 128;
+                        let data = self.ppu_stat;
+                        self.set_vblank(false);
+                        return data;
                     }
                     7 => {
                         let ret_val = self.read_vram(self.ppu_target_adr);
@@ -72,19 +93,21 @@ impl Mem {
             }
             0x2000..=0x3FFF => {
                 let ppu_reg = addr % 8;
-//                println!("Writing: 0x{:X} to ppu register {:?}", val, ppu_reg);
+                println!("Writing: 0x{:X} to ppu register {:?}", val, ppu_reg);
                 match ppu_reg {
                     6 => {
                         if self.ppu_writing_high_adress_bit {
                             self.ppu_target_adr = (self.ppu_target_adr & 0xFF) | ((val as u16) << 8);
                             self.ppu_writing_high_adress_bit = false;
                         } else {
-                            self.ppu_target_adr = self.ppu_target_adr | (val as u16);
+                            self.ppu_target_adr = (self.ppu_target_adr & 0xFF00) | (val as u16);
                             self.ppu_writing_high_adress_bit = true;
                         }
+                        println!("TARGET ADDRESS CHANGED TO: 0x{:X}", self.ppu_target_adr);
                     }
                     7 => {
-                        self.write_vram(self.ppu_target_adr, val);
+                        self.write_vram(self.ppu_target_adr, self.val_to_write_to_vram);
+                        self.val_to_write_to_vram = val;
                         self.ppu_target_adr = self.ppu_target_adr.wrapping_add(1);
                     }
                     _ => ()
@@ -106,10 +129,10 @@ impl Mem {
     pub fn write_vram(&mut self, addr: u16, val: u8) {
         match addr {
             0..=0x1FFF => {
-                panic!("Yet to be implemented (write {:X} to {:X})", val, addr);
+//                panic!("Yet to be implemented (write {:X} to {:X})", val, addr);
             }
             0x2000..=0x3FFF => {
-                println!("VRAM: writing {:X} to {:X}", val, addr);
+//                println!("VRAM: writing {:X} to {:X}", val, addr);
                 self.vram[addr as usize] = val;
             }
             _ => {
@@ -153,6 +176,9 @@ impl Nes {
                 irq: 1,
                 ppu_target_adr: 0,
                 ppu_writing_high_adress_bit: true,
+                val_to_write_to_vram: 0,
+                ppu_stat: 0,
+                nmi: false
             }
         ));
 
@@ -171,7 +197,7 @@ impl Nes {
 //            #[cfg(debug_assertions)]
 //            println!("{:?}", self.cpu);
             let cycles_taken = self.cpu.emulate();
-            self.ppu.emulate(cycles_taken);
+            self.ppu.emulate(cycles_taken * 3);
             i -= cycles_taken as i32;
         }
 //        println!("LOOP!");
