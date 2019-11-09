@@ -54,14 +54,18 @@ impl Ppu {
             self.triggered_nmi_this_scanline = false;
         }
         if self.current_scanline == 241 && !self.triggered_nmi_this_scanline {
-            self.mem.borrow_mut().set_vblank(true);
+//            self.mem.borrow_mut().set_vblank(true);
             self.mem.borrow_mut().set_nmi_occured(true);
+            let nmi_out = self.mem.borrow_mut().get_nmi_output();
+            if nmi_out {
+                self.mem.borrow_mut().trigger_nmi();
+            }
             self.triggered_nmi_this_scanline = true;
         }
         if self.current_scanline == 262 {
-            self.mem.borrow_mut().set_vblank(false);
+//            self.mem.borrow_mut().set_vblank(false);
             self.mem.borrow_mut().set_nmi_occured(false);
-            self.current_scanline = -1;
+            self.current_scanline = 0;
         }
     }
 
@@ -73,12 +77,15 @@ impl Ppu {
 //        }
 
         self.render_chr();
-        let x: u32 = 500;
-        let y: u32 = 128;
+        let mut x: u32 = 372;
+        let mut y: u32 = 128;
         self.render_nametable(0x2000, x, y);
-//        self.render_nametable(0x2400, x, y);
-//        self.render_nametable(0x2800, x, y);
-//        self.render_nametable(0x2C00, x, y);
+        x += 272;
+        self.render_nametable(0x2400, x, y);
+        y += 256;
+        self.render_nametable(0x2800, x, y);
+        x -= 272;
+        self.render_nametable(0x2C00, x, y);
 
         self.texture.update(&self.canvas);
 
@@ -120,12 +127,12 @@ impl Ppu {
     fn render_chr(&mut self) {
         //FIXME: Only recalculate if there were changes in CHR
         //Parse out chr data and just render it to screen in b&w
-        let render_start_x: u32 = 500;
+        let render_start_x: u32 = 372;
         let render_start_y: u32 = 0;
 
         //Render CHR1 ($0000-$0FFF)
         //TODO: Parse/render CHR2 as well
-        let adr_base = 0x0;
+        let adr_base = 0x1000;
         for tile_no in 0..256 {
             //256 tiles, each takes up 16 bytes, and consists of two pictures of 8 bytes
             // that are later on added together to form the resulting picture

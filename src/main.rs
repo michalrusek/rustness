@@ -11,7 +11,7 @@ use std::borrow::BorrowMut;
 fn main() {
     let opengl = OpenGL::V4_5;
 
-    let (width, height) = (800, 600);
+    let (width, height) = (1024, 768);
     let mut window: PistonWindow =
         WindowSettings::new("Rustness!", (width, height))
             .exit_on_esc(true)
@@ -20,7 +20,7 @@ fn main() {
             .unwrap();
 
     //Initialize the emulator
-    let mut n = Nes::new("./roms/nestest.nes", &mut window, opengl, (width, height));
+    let mut n = Nes::new("./roms/donkey.nes", &mut window, opengl, (width, height));
 
     //TODO: REMOVE THIS TESTING CODE
 //    let file = File::open("./roms/nestest.log.txt").unwrap();

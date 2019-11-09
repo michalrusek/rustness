@@ -207,7 +207,8 @@ impl Cpu {
             return 7;
         }
 
-        if self.mem.borrow_mut().get_nmi_occured() {
+        if self.mem.borrow_mut().trigger_nmi {
+            self.mem.borrow_mut().trigger_nmi = false;
             self.set_interrupt_disable(true);
             self.mem.borrow_mut().irq = 1;
             self.stack_push_u16(self.pc);
@@ -215,7 +216,6 @@ impl Cpu {
             self.pc = self.mem.borrow_mut().read_u16(0xFFFA);
             self.p = self.p & 0b11001111;
             self.p = self.p | 0b100000;
-            self.mem.borrow_mut().set_nmi_occured(false);
             return 7;
         }
 
