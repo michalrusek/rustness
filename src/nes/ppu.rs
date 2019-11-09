@@ -9,7 +9,8 @@ pub struct Ppu {
     gl: opengl_graphics::GlGraphics,
     canvas: im::ImageBuffer<im::Rgba<u8>, Vec<u8>>,
     texture: opengl_graphics::Texture,
-    img: Image
+    img: Image,
+    chr_tiles: [[[u8; 8]; 8]; 256],
 }
 
 impl Ppu {
@@ -19,13 +20,11 @@ impl Ppu {
 
         let mut canvas = im::ImageBuffer::new(width, height);
         let mut texture = opengl_graphics::Texture::from_image(&canvas, &opengl_graphics::TextureSettings::new());
-        let img = Image::new().rect(graphics::rectangle::rectangle_by_corners(0.0, 0.0,width as f64, height as f64));
-        Ppu { mem: Rc::clone(mem), gl, canvas, texture, img}
+        let img = Image::new().rect(graphics::rectangle::rectangle_by_corners(0.0, 0.0, width as f64, height as f64));
+        Ppu { mem: Rc::clone(mem), gl, canvas, texture, img, chr_tiles: [[[0; 8]; 8]; 256] }
     }
 
-    pub fn emulate(&mut self, cycles: u8) {
-
-    }
+    pub fn emulate(&mut self, cycles: u8) {}
 
     pub fn render(&mut self, r: piston_window::RenderArgs) {
 //        for i in 0..400_000 {
@@ -49,8 +48,8 @@ impl Ppu {
     fn render_chr(&mut self) {
         //Parse out chr data and just render it to screen in b&w
         //TODO: Add palettes here
-        let render_start_x: u16 = 600;
-        let render_start_y: u16 = 0;
+        let render_start_x: u32 = 600;
+        let render_start_y: u32 = 0;
 
         //Render CHR1 ($0000-$0FFF)
         let adr_base = 0x0;
@@ -68,14 +67,19 @@ impl Ppu {
             }
 
             //TODO: Render it out
-            let tile_start_x = render_start_x + (tile_no % 16) * 8;
-            let tile_start_y = render_start_y + (tile_no / 16) * 8;
+            let tile_start_x = render_start_x + (tile_no as u32 % 16) * 8;
+            let tile_start_y = render_start_y + (tile_no as u32 / 16) * 8;
             for i in 0..8 {
                 for j in 0..8 {
-                    let x = (tile_start_x + (7 - j) as u16) as u32;
-                    let y = (tile_start_y + i) as u32;
-                    let color = ((low_bits[i as usize] >> (j as u8)) & 0b1) * 255;
-                    self.canvas.put_pixel(x, y, im::Rgba([color, color, color, 255]));
+                    let x = (tile_start_x + (7 - j));
+                    let y = (tile_start_y + i);
+                    let color =
+                        (
+                            ((low_bits[i as usize] >> (j as u8)) & 0b1) |
+                                (((high_bits[i as usize] >> (j as u8)) & 0b1) << 1)
+                        );
+                    self.chr_tiles[tile_no as usize][i as usize][(7 - j) as usize] = color;
+                    self.canvas.put_pixel(x, y, im::Rgba([color * (255 / 4), color * (255 / 4), color * (255 / 4), 255]));
                 }
             }
         }
