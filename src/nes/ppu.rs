@@ -1,9 +1,9 @@
 use std::cell::RefCell;
 use std::rc::Rc;
-use crate::nes::Mem;
 use crate::nes::palette::get_rgb_color;
 use piston_window::{PistonWindow, Image};
 use opengl_graphics::OpenGL;
+use crate::nes::mem::Mem;
 
 type Tile = [[u8; 8]; 8];
 
@@ -19,6 +19,10 @@ pub struct Ppu {
     nametable1: [Tile; 960],
     nametable2: [Tile; 960],
     nametable3: [Tile; 960],
+    bg_palette0: [(u8, u8, u8); 4],
+    bg_palette1: [(u8, u8, u8); 4],
+    bg_palette2: [(u8, u8, u8); 4],
+    bg_palette3: [(u8, u8, u8); 4],
     current_scanline: i32,
     cycles_total: u64,
     cycles_for_current_scanline: u16,
@@ -47,6 +51,10 @@ impl Ppu {
             nametable1: [[[0; 8]; 8]; 960],
             nametable2: [[[0; 8]; 8]; 960],
             nametable3: [[[0; 8]; 8]; 960],
+            bg_palette0: [(0, 0, 0); 4],
+            bg_palette1: [(0, 0, 0); 4],
+            bg_palette2: [(0, 0, 0); 4],
+            bg_palette3: [(0, 0, 0); 4],
             current_scanline: -1,
             cycles_total: 0,
             cycles_for_current_scanline: 0,
@@ -77,12 +85,11 @@ impl Ppu {
     }
 
     pub fn render(&mut self, r: piston_window::RenderArgs) {
-//        for i in 0..400_000 {
-//            let x = i % 800;
-//            let y = i / 800;
-//            self.canvas.put_pixel(x, y, im::Rgba([255, 255, 255, 255]));
-//        }
-
+        let universal_bg_color = self.get_universal_bg_color();
+        self.bg_palette0 = self.get_palette(0x3F01, universal_bg_color);
+        self.bg_palette1 = self.get_palette(0x3F05, universal_bg_color);
+        self.bg_palette2 = self.get_palette(0x3F09, universal_bg_color);
+        self.bg_palette3 = self.get_palette(0x3F0D, universal_bg_color);
         self.chr_tiles0 = self.render_chr(0x0000, 472, 0);
         self.chr_tiles1 = self.render_chr(0x1000, 600, 0);
         let mut x: u32 = 472;
@@ -103,6 +110,22 @@ impl Ppu {
         graphics::image(&self.texture, c.transform, &mut self.gl);
 
         self.gl.draw_end();
+    }
+
+    fn get_universal_bg_color(&mut self) -> (u8, u8, u8) {
+        let col_num = self.mem.borrow_mut().read_vram(0x3F00);
+        get_rgb_color(col_num)
+    }
+
+    fn get_palette(&mut self, base_adr: u16, ubg: (u8, u8, u8))
+        -> [(u8, u8, u8); 4] {
+        let mut pal = [(0, 0, 0); 4];
+        pal[0] = ubg;
+        for i in 0..3 {
+            let col_num = self.mem.borrow_mut().read_vram(base_adr + i);
+            pal[(i + 1) as usize] = get_rgb_color(col_num);
+        }
+        pal
     }
 
     fn render_nametable(&mut self, base_adr: u16, render_start_x: u32,
@@ -130,7 +153,8 @@ impl Ppu {
                         let x = (tile_start_x + j);
                         let y = (tile_start_y + i);
                         let color = nametable[index as usize][i as usize][j as usize];
-                        self.canvas.put_pixel(x, y, im::Rgba([80, color * (255 / 4), color * (255 / 4), 255]));
+                        let (r, g, b) = self.bg_palette0[color as usize];
+                        self.canvas.put_pixel(x, y, im::Rgba([r, g, b, 255]));
                     }
                 }
             }
@@ -171,7 +195,7 @@ impl Ppu {
                                 (((high_bits[i as usize] >> (j as u8)) & 0b1) << 1)
                         );
                     ret_tiles[tile_no as usize][i as usize][(7 - j) as usize] = color;
-                    let (r, g, b) = get_rgb_color(color);
+                    let (r, g, b) = self.bg_palette0[color as usize];
                     self.canvas.put_pixel(x, y, im::Rgba([r, g, b, 255]));
                 }
             }

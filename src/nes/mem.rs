@@ -168,6 +168,18 @@ impl Mem {
             0..=0x1FFF => {
                 self.chr_rom[addr as usize]
             }
+            0x2000..=0x2FFF => {
+                self.vram[addr as usize]
+            }
+            0x3000..=0x3EFF => {
+                self.vram[(addr - 0x1000) as usize]
+            }
+            0x3F00..=0x3F1F => {
+                self.vram[addr as usize]
+            }
+            0x3F20..=0x3FFF => {
+                self.vram[(addr - 0x20) as usize]
+            }
             _ => self.vram[addr as usize]
         }
     }
@@ -175,11 +187,20 @@ impl Mem {
     pub fn write_vram(&mut self, addr: u16, val: u8) {
         match addr {
             0..=0x1FFF => {
-//                panic!("Yet to be implemented (write {:X} to {:X})", val, addr);
+                panic!("Yet to be implemented (write {:X} to {:X})", val, addr);
             }
-            0x2000..=0x3FFF => {
+            0x2000..=0x2FFF => {
 //                println!("VRAM: writing {:X} to {:X}", val, addr);
                 self.vram[addr as usize] = val;
+            }
+            0x3000..=0x3EFF => {
+                self.vram[(addr - 0x1000) as usize] = val;
+            }
+            0x3F00..=0x3F1F => {
+                self.vram[addr as usize] = val;
+            }
+            0x3F20..=0x3FFF => {
+                self.vram[(addr - 0x20) as usize] = val;
             }
             _ => {
                 panic!("Out of range (write {:X} to {:X})", val, addr);
