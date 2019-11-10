@@ -23,10 +23,14 @@ pub struct Ppu {
     bg_palette1: [(u8, u8, u8); 4],
     bg_palette2: [(u8, u8, u8); 4],
     bg_palette3: [(u8, u8, u8); 4],
+    pallete_per_tile0: [u8; 960],
+    pallete_per_tile1: [u8; 960],
+    pallete_per_tile2: [u8; 960],
+    pallete_per_tile3: [u8; 960],
     current_scanline: i32,
     cycles_total: u64,
     cycles_for_current_scanline: u16,
-    triggered_nmi_this_scanline: bool
+    triggered_nmi_this_scanline: bool,
 }
 
 const CYCLES_PER_SCANLINE: u16 = 340;
@@ -55,10 +59,14 @@ impl Ppu {
             bg_palette1: [(0, 0, 0); 4],
             bg_palette2: [(0, 0, 0); 4],
             bg_palette3: [(0, 0, 0); 4],
+            pallete_per_tile0: [0; 960],
+            pallete_per_tile1: [0; 960],
+            pallete_per_tile2: [0; 960],
+            pallete_per_tile3: [0; 960],
             current_scanline: -1,
             cycles_total: 0,
             cycles_for_current_scanline: 0,
-            triggered_nmi_this_scanline: true
+            triggered_nmi_this_scanline: true,
         }
     }
 
@@ -90,17 +98,28 @@ impl Ppu {
         self.bg_palette1 = self.get_palette(0x3F05, universal_bg_color);
         self.bg_palette2 = self.get_palette(0x3F09, universal_bg_color);
         self.bg_palette3 = self.get_palette(0x3F0D, universal_bg_color);
+
+        self.pallete_per_tile0 = self.parse_attr_to_tiles(0x23C0);
+        self.pallete_per_tile1 = self.parse_attr_to_tiles(0x27C0);
+        self.pallete_per_tile2 = self.parse_attr_to_tiles(0x2BC0);
+        self.pallete_per_tile3 = self.parse_attr_to_tiles(0x2FC0);
+
         self.chr_tiles0 = self.render_chr(0x0000, 472, 0);
         self.chr_tiles1 = self.render_chr(0x1000, 600, 0);
         let mut x: u32 = 472;
         let mut y: u32 = 128;
-        self.nametable0 = self.render_nametable(0x2000, x, y);
+        self.nametable0 = self.render_nametable(0x2000, x, y,
+                                                self.pallete_per_tile0);
         x += 272;
-        self.nametable1 = self.render_nametable(0x2400, x, y);
+        self.nametable1 = self.render_nametable(0x2400, x, y,
+                                                self.pallete_per_tile1);
         y += 256;
-        self.nametable2 = self.render_nametable(0x2800, x, y);
+        self.nametable2 = self.render_nametable(0x2800, x, y,
+                                                self.pallete_per_tile2);
         x -= 272;
-        self.nametable3 = self.render_nametable(0x2C00, x, y);
+        self.nametable3 = self.render_nametable(0x2C00, x, y,
+                                                self.pallete_per_tile3);
+
 
         self.texture.update(&self.canvas);
 
@@ -112,13 +131,17 @@ impl Ppu {
         self.gl.draw_end();
     }
 
+    fn parse_attr_to_tiles(&mut self, base_adr: u16) -> [u8; 960] {
+        [0; 960]
+    }
+
     fn get_universal_bg_color(&mut self) -> (u8, u8, u8) {
         let col_num = self.mem.borrow_mut().read_vram(0x3F00);
         get_rgb_color(col_num)
     }
 
     fn get_palette(&mut self, base_adr: u16, ubg: (u8, u8, u8))
-        -> [(u8, u8, u8); 4] {
+                   -> [(u8, u8, u8); 4] {
         let mut pal = [(0, 0, 0); 4];
         pal[0] = ubg;
         for i in 0..3 {
@@ -129,7 +152,7 @@ impl Ppu {
     }
 
     fn render_nametable(&mut self, base_adr: u16, render_start_x: u32,
-                        render_start_y: u32) -> [Tile; 960] {
+                        render_start_y: u32, palette_per_tile: [u8; 960]) -> [Tile; 960] {
         //FIXME: Only recalculate if there were changes in Nametable
         //Parse out nametable 0 (960 bytes; 32 tiles wide; 30 tiles high)
         let mut nametable = [[[0; 8]; 8]; 960];
@@ -148,12 +171,19 @@ impl Ppu {
                 //Render it out
                 let tile_start_x = render_start_x + ((cols as u32) * 8);
                 let tile_start_y = render_start_y + ((rows as u32) * 8);
+                let pal_for_tile = match palette_per_tile[tile_no as usize] {
+                    0 => { self.bg_palette0 }
+                    1 => { self.bg_palette1 }
+                    2 => { self.bg_palette2 }
+                    3 => { self.bg_palette3 }
+                    _ => [(0, 0, 0); 4]
+                };
                 for i in 0..8 {
                     for j in 0..8 {
                         let x = (tile_start_x + j);
                         let y = (tile_start_y + i);
                         let color = nametable[index as usize][i as usize][j as usize];
-                        let (r, g, b) = self.bg_palette0[color as usize];
+                        let (r, g, b) = pal_for_tile[color as usize];
                         self.canvas.put_pixel(x, y, im::Rgba([r, g, b, 255]));
                     }
                 }
