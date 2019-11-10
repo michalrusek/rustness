@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 use crate::nes::Mem;
+use crate::nes::palette::get_rgb_color;
 use piston_window::{PistonWindow, Image};
 use opengl_graphics::OpenGL;
 
@@ -65,7 +66,7 @@ impl Ppu {
             self.mem.borrow_mut().set_nmi_occured(true);
             let nmi_out = self.mem.borrow_mut().get_nmi_output();
             if nmi_out {
-                self.mem.borrow_mut().trigger_nmi();
+                self.mem.borrow_mut().set_trigger_nmi(true);
             }
             self.triggered_nmi_this_scanline = true;
         }
@@ -82,9 +83,9 @@ impl Ppu {
 //            self.canvas.put_pixel(x, y, im::Rgba([255, 255, 255, 255]));
 //        }
 
-        self.chr_tiles0 = self.render_chr(0x0000, 372, 0);
-        self.chr_tiles1 = self.render_chr(0x1000, 500, 0);
-        let mut x: u32 = 372;
+        self.chr_tiles0 = self.render_chr(0x0000, 472, 0);
+        self.chr_tiles1 = self.render_chr(0x1000, 600, 0);
+        let mut x: u32 = 472;
         let mut y: u32 = 128;
         self.nametable0 = self.render_nametable(0x2000, x, y);
         x += 272;
@@ -170,7 +171,8 @@ impl Ppu {
                                 (((high_bits[i as usize] >> (j as u8)) & 0b1) << 1)
                         );
                     ret_tiles[tile_no as usize][i as usize][(7 - j) as usize] = color;
-                    self.canvas.put_pixel(x, y, im::Rgba([color * (255 / 4), color * (255 / 4), color * (255 / 4), 255]));
+                    let (r, g, b) = get_rgb_color(color);
+                    self.canvas.put_pixel(x, y, im::Rgba([r, g, b, 255]));
                 }
             }
         }

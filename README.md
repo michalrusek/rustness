@@ -4,6 +4,7 @@ Still learning rust and decided a NES emulator will be a great project for a Rus
 ## TODO:
 [x] CPU opcodes  
 [] PPU parsing memory and showing graphics  
+[] PPU Scrolling  
 [] Communication between PPU and CPU  
 [] Parsing INES header  
 [] Sound  
