@@ -29,6 +29,12 @@ pub struct Mem {
 }
 
 impl Mem {
+    pub fn should_increment_by_1(&mut self) -> bool {
+        return (self.ppu_ctrl & 0b100) == 0
+    }
+    pub fn use_chr_0(&mut self) -> bool {
+        return (self.ppu_ctrl & 0b10000) == 0
+    }
     pub fn get_nmi_enable(&mut self) -> bool {
         (self.ppu_ctrl & 128) > 0
     }
@@ -46,16 +52,6 @@ impl Mem {
     }
     pub fn trigger_nmi(&mut self) {
         self.trigger_nmi = true;
-    }
-    pub fn set_vblank(&mut self, set: bool) {
-        if set {
-            self.ppu_stat |= 128;
-        } else {
-            self.ppu_stat & 0b01111111;
-        }
-    }
-    pub fn get_vblank(&mut self) -> bool{
-        (self.ppu_stat & 128) > 0
     }
     pub fn read_u8(&mut self, addr: u16) -> u8 {
         match addr {
@@ -76,13 +72,20 @@ impl Mem {
                         } else {
                             data = data & 0b01111111;
                         }
-//                        self.set_vblank(false);
                         self.set_nmi_occured(false);
+                        self.ppu_writing_high_adress_bit = true;
                         return data;
                     }
                     7 => {
                         let ret_val = self.read_vram(self.ppu_target_adr);
-                        self.ppu_target_adr = self.ppu_target_adr.wrapping_add(1);
+                        if self.should_increment_by_1() {
+                            self.ppu_target_adr = self.ppu_target_adr.wrapping_add(1);
+                        } else {
+                            self.ppu_target_adr = self.ppu_target_adr.wrapping_add(32);
+                        }
+                        if self.ppu_target_adr == 0x4000 {
+                            self.ppu_target_adr = 0;
+                        }
                         ret_val
                     }
                     _ => 0
@@ -134,10 +137,13 @@ impl Mem {
                         println!("TARGET ADDRESS CHANGED TO: 0x{:X}", self.ppu_target_adr);
                     }
                     7 => {
-//                        panic!("S");
-                        self.write_vram(self.ppu_target_adr, self.val_to_write_to_vram);
                         self.val_to_write_to_vram = val;
-                        self.ppu_target_adr = self.ppu_target_adr.wrapping_add(1);
+                        self.write_vram(self.ppu_target_adr, self.val_to_write_to_vram);
+                        if self.should_increment_by_1() {
+                            self.ppu_target_adr = self.ppu_target_adr.wrapping_add(1);
+                        } else {
+                            self.ppu_target_adr = self.ppu_target_adr.wrapping_add(32);
+                        }
                         if self.ppu_target_adr == 0x4000 {
                             self.ppu_target_adr = 0;
                         }

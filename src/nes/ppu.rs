@@ -12,15 +12,19 @@ pub struct Ppu {
     canvas: im::ImageBuffer<im::Rgba<u8>, Vec<u8>>,
     texture: opengl_graphics::Texture,
     img: Image,
-    chr_tiles: [Tile; 256],
-    nametable: [Tile; 960],
+    chr_tiles0: [Tile; 256],
+    chr_tiles1: [Tile; 256],
+    nametable0: [Tile; 960],
+    nametable1: [Tile; 960],
+    nametable2: [Tile; 960],
+    nametable3: [Tile; 960],
     current_scanline: i32,
     cycles_total: u64,
     cycles_for_current_scanline: u16,
     triggered_nmi_this_scanline: bool
 }
 
-const CYCLES_PER_SCANLINE: u16 = 341;
+const CYCLES_PER_SCANLINE: u16 = 340;
 
 impl Ppu {
     pub fn new(mem: &Rc<RefCell<Mem>>, window: &mut PistonWindow, opengl: OpenGL,
@@ -36,8 +40,12 @@ impl Ppu {
             canvas,
             texture,
             img,
-            chr_tiles: [[[0; 8]; 8]; 256],
-            nametable: [[[0; 8]; 8]; 960],
+            chr_tiles0: [[[0; 8]; 8]; 256],
+            chr_tiles1: [[[0; 8]; 8]; 256],
+            nametable0: [[[0; 8]; 8]; 960],
+            nametable1: [[[0; 8]; 8]; 960],
+            nametable2: [[[0; 8]; 8]; 960],
+            nametable3: [[[0; 8]; 8]; 960],
             current_scanline: -1,
             cycles_total: 0,
             cycles_for_current_scanline: 0,
@@ -54,7 +62,6 @@ impl Ppu {
             self.triggered_nmi_this_scanline = false;
         }
         if self.current_scanline == 241 && !self.triggered_nmi_this_scanline {
-//            self.mem.borrow_mut().set_vblank(true);
             self.mem.borrow_mut().set_nmi_occured(true);
             let nmi_out = self.mem.borrow_mut().get_nmi_output();
             if nmi_out {
@@ -62,8 +69,7 @@ impl Ppu {
             }
             self.triggered_nmi_this_scanline = true;
         }
-        if self.current_scanline == 262 {
-//            self.mem.borrow_mut().set_vblank(false);
+        if self.current_scanline == 261 {
             self.mem.borrow_mut().set_nmi_occured(false);
             self.current_scanline = 0;
         }
@@ -76,16 +82,17 @@ impl Ppu {
 //            self.canvas.put_pixel(x, y, im::Rgba([255, 255, 255, 255]));
 //        }
 
-        self.render_chr();
+        self.chr_tiles0 = self.render_chr(0x0000, 372, 0);
+        self.chr_tiles1 = self.render_chr(0x1000, 500, 0);
         let mut x: u32 = 372;
         let mut y: u32 = 128;
-        self.render_nametable(0x2000, x, y);
+        self.nametable0 = self.render_nametable(0x2000, x, y);
         x += 272;
-        self.render_nametable(0x2400, x, y);
+        self.nametable1 = self.render_nametable(0x2400, x, y);
         y += 256;
-        self.render_nametable(0x2800, x, y);
+        self.nametable2 = self.render_nametable(0x2800, x, y);
         x -= 272;
-        self.render_nametable(0x2C00, x, y);
+        self.nametable3 = self.render_nametable(0x2C00, x, y);
 
         self.texture.update(&self.canvas);
 
@@ -97,17 +104,22 @@ impl Ppu {
         self.gl.draw_end();
     }
 
-    fn render_nametable(&mut self, base_adr: u16, render_start_x: u32, render_start_y: u32) {
+    fn render_nametable(&mut self, base_adr: u16, render_start_x: u32,
+                        render_start_y: u32) -> [Tile; 960] {
         //FIXME: Only recalculate if there were changes in Nametable
         //Parse out nametable 0 (960 bytes; 32 tiles wide; 30 tiles high)
-        //TODO: parse nametables 1, 2, 3 as well
+        let mut nametable = [[[0; 8]; 8]; 960];
 
         for rows in 0..30u16 {
             for cols in 0..32u16 {
                 //Get the tile and save it
                 let index = ((rows * 32) + cols);
                 let tile_no = self.mem.borrow_mut().read_vram(index + base_adr);
-                self.nametable[index as usize] = self.chr_tiles[tile_no as usize];
+                if self.mem.borrow_mut().use_chr_0() {
+                    nametable[index as usize] = self.chr_tiles0[tile_no as usize];
+                } else {
+                    nametable[index as usize] = self.chr_tiles1[tile_no as usize];
+                }
 
                 //Render it out
                 let tile_start_x = render_start_x + ((cols as u32) * 8);
@@ -116,23 +128,22 @@ impl Ppu {
                     for j in 0..8 {
                         let x = (tile_start_x + j);
                         let y = (tile_start_y + i);
-                        let color = self.chr_tiles[tile_no as usize][i as usize][j as usize];
+                        let color = nametable[index as usize][i as usize][j as usize];
                         self.canvas.put_pixel(x, y, im::Rgba([80, color * (255 / 4), color * (255 / 4), 255]));
                     }
                 }
             }
         }
+        nametable
     }
 
-    fn render_chr(&mut self) {
+    fn render_chr(&mut self, adr_base: u16, render_start_x: u32,
+                  render_start_y: u32) -> [Tile; 256] {
         //FIXME: Only recalculate if there were changes in CHR
         //Parse out chr data and just render it to screen in b&w
-        let render_start_x: u32 = 372;
-        let render_start_y: u32 = 0;
+        let mut ret_tiles = [[[0; 8]; 8]; 256];
 
         //Render CHR1 ($0000-$0FFF)
-        //TODO: Parse/render CHR2 as well
-        let adr_base = 0x1000;
         for tile_no in 0..256 {
             //256 tiles, each takes up 16 bytes, and consists of two pictures of 8 bytes
             // that are later on added together to form the resulting picture
@@ -158,10 +169,11 @@ impl Ppu {
                             ((low_bits[i as usize] >> (j as u8)) & 0b1) |
                                 (((high_bits[i as usize] >> (j as u8)) & 0b1) << 1)
                         );
-                    self.chr_tiles[tile_no as usize][i as usize][(7 - j) as usize] = color;
+                    ret_tiles[tile_no as usize][i as usize][(7 - j) as usize] = color;
                     self.canvas.put_pixel(x, y, im::Rgba([color * (255 / 4), color * (255 / 4), color * (255 / 4), 255]));
                 }
             }
         }
+        ret_tiles
     }
 }
