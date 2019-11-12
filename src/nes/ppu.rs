@@ -132,7 +132,19 @@ impl Ppu {
     }
 
     fn parse_attr_to_tiles(&mut self, base_adr: u16) -> [u8; 960] {
-        [0; 960]
+        let mut pal_num_per_tile: [u8; 960] = [0; 960];
+        for row_num in 0..30 {
+            for col_num in 0..32 {
+                let i = row_num * 32 + col_num;
+                let quad_block_number = ((row_num / 4) * 8) + (col_num / 4);
+                let block_number = ((row_num / 2) * 16) + (col_num / 2);
+                let block_number_in_quad_block_bit = (((row_num / 2) % 2) << 1) + (block_number % 2);
+                let quad_bit = self.mem.borrow_mut().read_vram((base_adr + (quad_block_number as u16)));
+                let pal_number = (quad_bit >> ((block_number_in_quad_block_bit) * 2)) & 0b11;
+                pal_num_per_tile[i as usize] = pal_number;
+            }
+        }
+        pal_num_per_tile
     }
 
     fn get_universal_bg_color(&mut self) -> (u8, u8, u8) {
@@ -171,7 +183,7 @@ impl Ppu {
                 //Render it out
                 let tile_start_x = render_start_x + ((cols as u32) * 8);
                 let tile_start_y = render_start_y + ((rows as u32) * 8);
-                let pal_for_tile = match palette_per_tile[tile_no as usize] {
+                let pal_for_tile = match palette_per_tile[index as usize] {
                     0 => { self.bg_palette0 }
                     1 => { self.bg_palette1 }
                     2 => { self.bg_palette2 }
