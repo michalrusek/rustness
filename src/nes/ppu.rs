@@ -127,7 +127,7 @@ impl Ppu {
         }
     }
 
-    pub fn render(&mut self, r: piston_window::RenderArgs) {
+    fn prepare_bg_stuff(&mut self) {
         let universal_bg_color = self.get_universal_bg_color();
         self.bg_palette0 = self.get_palette(0x3F01, universal_bg_color);
         self.bg_palette1 = self.get_palette(0x3F05, universal_bg_color);
@@ -158,8 +158,73 @@ impl Ppu {
                                                 NAMETABLE_3_X_Y.0,
                                                 NAMETABLE_3_X_Y.1,
                                                 self.pallete_per_tile3);
+    }
 
+    fn draw_all_sprites_in_a_very_stupid_manner(&mut self) {
+        if self.mem.borrow_mut().draw_sprites() {
+            let chr_for_sprites = match self.mem.borrow_mut().get_oam_chr_number() {
+                0 => self.chr_tiles0,
+                1 => self.chr_tiles1,
+                _ => self.chr_tiles0
+            };
+            let universal_bg_color = self.get_universal_bg_color();
+            let sprite_palette0 = self.get_palette(0x3F11, universal_bg_color);
+            let sprite_palette1 = self.get_palette(0x3F15, universal_bg_color);
+            let sprite_palette2 = self.get_palette(0x3F19, universal_bg_color);
+            let sprite_palette3 = self.get_palette(0x3F1D, universal_bg_color);
 
+            //64 sprites, 4 bytes each
+            for tile_no in 0..64 {
+                //TODO: self.mem.borrow_mut().should_use_big_sprites()
+                let oam_adr_for_tile = tile_no * 4;
+                let y = self.mem.borrow_mut().oam[oam_adr_for_tile as usize];
+                if y < 0xEF {
+                    let tile = chr_for_sprites[self.mem.borrow_mut().oam[(oam_adr_for_tile + 1) as usize] as usize];
+                    let attr = self.mem.borrow_mut().oam[(oam_adr_for_tile + 2) as usize];
+                    let x = self.mem.borrow_mut().oam[(oam_adr_for_tile + 3) as usize];
+                    if attr & 0b100000 == 0 {
+                        let pal_no = attr & 0b11;
+                        let horiz_flip = attr & 0b01000000 > 0;
+                        let vert_flip = attr & 0b10000000 > 0;
+                        for i in 0..8 {
+                            for j in 0..8 {
+                                let mut x_final = (x as u32 + j) * 2;
+                                if horiz_flip {
+                                    x_final = (x as u32 + (7 - j)) * 2;
+                                }
+                                let mut y_final = (y as u32 + i) * 2;
+                                if vert_flip {
+                                    y_final = (y as u32 + (7 - i)) * 2;
+                                }
+                                if x_final < 512 && y_final < 480 {
+                                    let color = tile[i as usize][j as usize];
+                                    if color > 0 {
+                                        let (r, g, b) = match pal_no {
+                                            0 => sprite_palette0[color as usize],
+                                            1 => sprite_palette1[color as usize],
+                                            2 => sprite_palette2[color as usize],
+                                            3 => sprite_palette3[color as usize],
+                                            _ => sprite_palette0[color as usize]
+                                        };
+                                        self.canvas.put_pixel(x_final, y_final, im::Rgba([r, g, b, 255]));
+                                        self.canvas.put_pixel(x_final + 1, y_final, im::Rgba([r, g, b, 255]));
+                                        self.canvas.put_pixel(x_final + 1, y_final + 1, im::Rgba([r, g, b, 255]));
+                                        self.canvas.put_pixel(x_final, y_final + 1, im::Rgba([r, g, b, 255]));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+//        self.mem.borrow_mut().set_sprite_0_hit(true);
+        }
+    }
+
+    pub fn render(&mut self, r: piston_window::RenderArgs) {
+        self.prepare_bg_stuff();
+        self.draw_all_sprites_in_a_very_stupid_manner();
         self.texture.update(&self.canvas);
 
         let c = self.gl.draw_begin(r.viewport());
