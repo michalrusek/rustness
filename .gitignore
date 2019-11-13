@@ -2,3 +2,4 @@
 **/*.rs.bk
 /roms/donkey.nes
 /roms/smb.nes
+/roms/lode.nes

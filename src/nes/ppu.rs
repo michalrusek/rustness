@@ -4,6 +4,7 @@ use crate::nes::palette::get_rgb_color;
 use piston_window::{PistonWindow, Image};
 use opengl_graphics::OpenGL;
 use crate::nes::mem::Mem;
+use std::borrow::Borrow;
 
 type Tile = [[u8; 8]; 8];
 
@@ -34,6 +35,13 @@ pub struct Ppu {
 }
 
 const CYCLES_PER_SCANLINE: u16 = 340;
+const CHR_0_X_Y: (u32, u32) = (700, 0);
+const CHR_1_X_Y: (u32, u32) = (828, 0);
+const NAMETABLE_0_X_Y: (u32, u32) = (700, 128);
+const NAMETABLE_1_X_Y: (u32, u32) = (700 + 256, 128);
+const NAMETABLE_2_X_Y: (u32, u32) = (700 + 256, 128 + 240);
+const NAMETABLE_3_X_Y: (u32, u32) = (700, 128 + 240);
+const SCREEN_X_Y: (u32, u32) = (0, 0);
 
 impl Ppu {
     pub fn new(mem: &Rc<RefCell<Mem>>, window: &mut PistonWindow, opengl: OpenGL,
@@ -71,14 +79,35 @@ impl Ppu {
     }
 
     pub fn emulate(&mut self, cycles: u8) {
-        self.cycles_total = self.cycles_total + cycles as u64;
-        self.cycles_for_current_scanline += cycles as u16;
-        if self.cycles_for_current_scanline >= CYCLES_PER_SCANLINE {
-            self.cycles_for_current_scanline -= CYCLES_PER_SCANLINE;
-            self.current_scanline += 1;
-            self.triggered_nmi_this_scanline = false;
+        for i in 0..cycles {
+            if self.current_scanline >= 0 && self.current_scanline < 240
+                && self.cycles_for_current_scanline < 256 {
+                //TODO: ADD LOGIC RESOLVING WHICH NAMETABLE SHOULD BE USED
+                let scroll_x = self.mem.borrow_mut().get_scroll_x() as u32;
+                let scroll_y = self.mem.borrow_mut().get_scroll_y() as u32;
+                let pixel = self.canvas.get_pixel(
+                    ((self.cycles_for_current_scanline as u32 + scroll_x) % 512) + NAMETABLE_0_X_Y.0,
+                    ((self.current_scanline as u32 + scroll_y) % 480) + NAMETABLE_0_X_Y.1,
+                );
+                let target_x = self.cycles_for_current_scanline as u32 * 2;
+                let target_y = self.current_scanline as u32 * 2;
+                let px_clone = pixel.clone();
+                self.canvas.put_pixel(target_x, target_y, px_clone);
+                self.canvas.put_pixel(target_x + 1, target_y, px_clone);
+                self.canvas.put_pixel(target_x + 1, target_y + 1, px_clone);
+                self.canvas.put_pixel(target_x, target_y + 1, px_clone);
+            }
+
+            self.cycles_total = self.cycles_total + 1;
+            self.cycles_for_current_scanline += 1;
+            if self.cycles_for_current_scanline >= CYCLES_PER_SCANLINE {
+                self.cycles_for_current_scanline -= CYCLES_PER_SCANLINE;
+                self.current_scanline += 1;
+                self.triggered_nmi_this_scanline = false;
+            }
         }
-        if self.current_scanline == 241 && !self.triggered_nmi_this_scanline {
+
+        if self.current_scanline == 240 && !self.triggered_nmi_this_scanline {
             self.mem.borrow_mut().set_nmi_occured(true);
             let nmi_out = self.mem.borrow_mut().get_nmi_output();
             if nmi_out {
@@ -104,20 +133,24 @@ impl Ppu {
         self.pallete_per_tile2 = self.parse_attr_to_tiles(0x2BC0);
         self.pallete_per_tile3 = self.parse_attr_to_tiles(0x2FC0);
 
-        self.chr_tiles0 = self.render_chr(0x0000, 472, 0);
-        self.chr_tiles1 = self.render_chr(0x1000, 600, 0);
-        let mut x: u32 = 472;
-        let mut y: u32 = 128;
-        self.nametable0 = self.render_nametable(0x2000, x, y,
+        self.chr_tiles0 = self.render_chr(0x0000, CHR_0_X_Y.0, CHR_0_X_Y.1);
+        self.chr_tiles1 = self.render_chr(0x1000, CHR_1_X_Y.0, CHR_1_X_Y.1);
+
+        self.nametable0 = self.render_nametable(0x2000,
+                                                NAMETABLE_0_X_Y.0,
+                                                NAMETABLE_0_X_Y.1,
                                                 self.pallete_per_tile0);
-        x += 272;
-        self.nametable1 = self.render_nametable(0x2400, x, y,
+        self.nametable1 = self.render_nametable(0x2400,
+                                                NAMETABLE_1_X_Y.0,
+                                                NAMETABLE_1_X_Y.1,
                                                 self.pallete_per_tile1);
-        y += 256;
-        self.nametable2 = self.render_nametable(0x2800, x, y,
+        self.nametable2 = self.render_nametable(0x2800,
+                                                NAMETABLE_2_X_Y.0,
+                                                NAMETABLE_2_X_Y.1,
                                                 self.pallete_per_tile2);
-        x -= 272;
-        self.nametable3 = self.render_nametable(0x2C00, x, y,
+        self.nametable3 = self.render_nametable(0x2C00,
+                                                NAMETABLE_3_X_Y.0,
+                                                NAMETABLE_3_X_Y.1,
                                                 self.pallete_per_tile3);
 
 

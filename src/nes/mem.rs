@@ -12,7 +12,10 @@ pub struct Mem {
     nmi_occured: bool,
     nmi_output: bool,
     ppu_ctrl: u8,
-    trigger_nmi: bool
+    trigger_nmi: bool,
+    scroll_latch: bool,
+    scroll_x: u8,
+    scroll_y: u8
 }
 
 impl Mem {
@@ -31,7 +34,10 @@ impl Mem {
             nmi_occured: false,
             nmi_output: false,
             ppu_ctrl: 0,
-            trigger_nmi: true
+            trigger_nmi: true,
+            scroll_latch: false,
+            scroll_x: 0,
+            scroll_y: 0
         }
     }
     pub fn should_increment_by_1(&mut self) -> bool {
@@ -61,6 +67,12 @@ impl Mem {
     pub fn get_trigger_nmi(&mut self) -> bool {
         self.trigger_nmi
     }
+    pub fn get_scroll_x(&mut self) -> u8 {
+        self.scroll_x
+    }
+    pub fn get_scroll_y(&mut self) -> u8 {
+        self.scroll_y
+    }
     pub fn read_u8(&mut self, addr: u16) -> u8 {
         match addr {
             0x0..=0x17FF => {
@@ -82,6 +94,7 @@ impl Mem {
                         }
                         self.set_nmi_occured(false);
                         self.ppu_writing_high_adress_bit = true;
+                        self.scroll_latch = false;
                         return data;
                     }
                     7 => {
@@ -133,6 +146,14 @@ impl Mem {
                     0 => {
                         self.ppu_ctrl = val;
                         self.set_nmi_output(self.ppu_ctrl >= 128);
+                    }
+                    5 => {
+                        if !self.scroll_latch {
+                            self.scroll_x = val;
+                        } else {
+                            self.scroll_y = val;
+                        }
+                        self.scroll_latch = !self.scroll_latch;
                     }
                     6 => {
                         if self.ppu_writing_high_adress_bit {
