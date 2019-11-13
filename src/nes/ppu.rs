@@ -82,12 +82,18 @@ impl Ppu {
         for i in 0..cycles {
             if self.current_scanline >= 0 && self.current_scanline < 240
                 && self.cycles_for_current_scanline < 256 {
-                //TODO: ADD LOGIC RESOLVING WHICH NAMETABLE SHOULD BE USED
+                let (nametable_x, nametable_y) = match self.mem.borrow_mut().get_nametable_index() {
+                    0 => NAMETABLE_0_X_Y,
+                    1 => NAMETABLE_1_X_Y,
+                    2 => NAMETABLE_2_X_Y,
+                    3 => NAMETABLE_3_X_Y,
+                    _ => (0, 0)
+                };
                 let scroll_x = self.mem.borrow_mut().get_scroll_x() as u32;
                 let scroll_y = self.mem.borrow_mut().get_scroll_y() as u32;
                 let pixel = self.canvas.get_pixel(
-                    ((self.cycles_for_current_scanline as u32 + scroll_x) % 512) + NAMETABLE_0_X_Y.0,
-                    ((self.current_scanline as u32 + scroll_y) % 480) + NAMETABLE_0_X_Y.1,
+                    ((self.cycles_for_current_scanline as u32 + scroll_x) % 512) + nametable_x,
+                    ((self.current_scanline as u32 + scroll_y) % 480) + nametable_y,
                 );
                 let target_x = self.cycles_for_current_scanline as u32 * 2;
                 let target_y = self.current_scanline as u32 * 2;

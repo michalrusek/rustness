@@ -73,6 +73,9 @@ impl Mem {
     pub fn get_scroll_y(&mut self) -> u8 {
         self.scroll_y
     }
+    pub fn get_nametable_index(&mut self) -> u8 {
+        self.ppu_ctrl & 0b11
+    }
     pub fn read_u8(&mut self, addr: u16) -> u8 {
         match addr {
             0x0..=0x17FF => {
