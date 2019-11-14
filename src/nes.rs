@@ -12,6 +12,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use piston_window::PistonWindow;
 use opengl_graphics::OpenGL;
+use piston::input::Key;
 
 
 pub struct Nes {
@@ -64,6 +65,25 @@ impl Nes {
 
     pub fn render_frame(&mut self, r: piston_window::RenderArgs) {
         self.ppu.render(r);
+    }
+    pub fn button_press(&mut self, k: Key) {
+        self.button(k, true);
+    }
+    pub fn button_lift(&mut self, k: Key) {
+        self.button(k, false);
+    }
+    fn button(&mut self, k: Key, set: bool) {
+        match k {
+            Key::Right => {self.mem.borrow_mut().button_set(0, set)}
+            Key::Left => {self.mem.borrow_mut().button_set(1, set)}
+            Key::Down => {self.mem.borrow_mut().button_set(2, set)}
+            Key::Up => {self.mem.borrow_mut().button_set(3, set)}
+            Key::S => {self.mem.borrow_mut().button_set(4, set)}
+            Key::A => {self.mem.borrow_mut().button_set(5, set)}
+            Key::Z => {self.mem.borrow_mut().button_set(6, set)}
+            Key::X => {self.mem.borrow_mut().button_set(7, set)}
+            _ => {}
+        }
     }
 }
 

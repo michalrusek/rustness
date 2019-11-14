@@ -18,7 +18,9 @@ pub struct Mem {
     scroll_x: u8,
     scroll_y: u8,
     oam_adr: u8,
-    ppu_mask: u8
+    ppu_mask: u8,
+    key_presses: u8,
+    keys_snapshot: u8
 }
 
 impl Mem {
@@ -43,7 +45,9 @@ impl Mem {
             scroll_x: 0,
             scroll_y: 0,
             oam_adr: 0,
-            ppu_mask: 0
+            ppu_mask: 0,
+            key_presses: 0,
+            keys_snapshot: 0
         }
     }
     pub fn should_increment_by_1(&mut self) -> bool {
@@ -98,6 +102,13 @@ impl Mem {
     pub fn draw_sprites(&mut self) -> bool {
         self.ppu_mask & 0b00010000 > 0
     }
+    pub fn button_set(&mut self, bit_index: u8, set: bool) {
+        if set {
+            self.key_presses |= (1 << bit_index);
+        } else {
+            self.key_presses &= !(1 << bit_index);
+        }
+    }
     pub fn read_u8(&mut self, addr: u16) -> u8 {
         match addr {
             0x0..=0x17FF => {
@@ -139,6 +150,11 @@ impl Mem {
                     }
                     _ => 0
                 }
+            }
+            0x4016..=0x4017 => {
+                let data = (self.keys_snapshot >> 7) & 0b1;
+                self.keys_snapshot = self.keys_snapshot << 1;
+                data
             }
             0x8000..=0xFFFF => {
                 let mut real_addr = addr - 0x8000;
@@ -220,6 +236,11 @@ impl Mem {
                 let mut adr = (val as u16) << 8;
                 for i in 0..256 {
                     self.oam[i as usize] = self.read_u8(adr + i);
+                }
+            }
+            0x4016..=0x4017 => {
+                if val > 0 {
+                    self.keys_snapshot = self.key_presses;
                 }
             }
             _ => {}

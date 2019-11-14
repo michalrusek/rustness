@@ -1,11 +1,20 @@
 ## NES emulator written in Rust
 Still learning rust and decided a NES emulator will be a great project for a Rust newbie;
 
+## Current progress
+It's able to play some NROM games:  
+![Alt text](/img/lode.gif?raw=true "Lode Runner")  
+![Alt text](/img/donkey.gif?raw=true "Donkey Kong")  
+![Alt text](/img/nestest.gif?raw=true "Nestest") 
+
+## Controls
+A, S, Z, X & arrow keys
+
 ## TODO:
 [x] CPU opcodes  
-[] PPU parsing memory and showing graphics  
-[] PPU Scrolling  
-[] Communication between PPU and CPU  
+[x] PPU parsing memory and showing graphics  
+[x] PPU Scrolling  
+[x] Communication between PPU and CPU  
 [] Parsing INES header  
 [] Sound  
 [] Memory mappers

@@ -44,5 +44,14 @@ fn main() {
 //            println!("Line {:?} is okay.", line_number);
 //            line_number += 1;
         }
+
+        if let Some(Button::Keyboard(k)) = event.press_args() {
+            //Send key presses to the game
+            n.button_press(k);
+        }
+        if let Some(Button::Keyboard(k)) = event.release_args() {
+            //Send lif to game
+            n.button_lift(k);
+        }
     }
 }
